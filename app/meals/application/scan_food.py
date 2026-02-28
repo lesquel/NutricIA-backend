@@ -7,7 +7,7 @@ from PIL import Image
 
 from app.config import settings
 from app.meals.infrastructure.ai_providers import get_analyzer
-from app.meals.presentation.schemas import ScanResult
+from app.meals.presentation import ScanResult
 
 logger = logging.getLogger(__name__)
 

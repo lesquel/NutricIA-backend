@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.habits.infrastructure.models import Habit, HabitCheckIn, WaterIntake
-from app.habits.presentation.schemas import HabitCreate, HabitResponse
+from app.habits.presentation import HabitCreate, HabitResponse
 
 
 async def create_habit(

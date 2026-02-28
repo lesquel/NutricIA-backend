@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.meals.infrastructure import Meal, MealTag
-from app.meals.presentation.schemas import MealCreate
+from app.meals.presentation import MealCreate
 
 
 async def create_meal_record(

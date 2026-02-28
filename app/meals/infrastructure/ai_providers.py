@@ -9,7 +9,7 @@ import httpx
 
 from app.config import settings
 from app.meals.domain import FoodAnalysisError
-from app.meals.presentation.schemas import ScanResult
+from app.meals.presentation import ScanResult
 
 logger = logging.getLogger(__name__)
 

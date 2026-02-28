@@ -12,7 +12,7 @@ from app.meals.infrastructure.repository import (
     get_meal_by_id_query,
     delete_meal_record,
 )
-from app.meals.presentation.schemas import MealCreate, MealResponse
+from app.meals.presentation import MealCreate, MealResponse
 
 
 async def save_meal(

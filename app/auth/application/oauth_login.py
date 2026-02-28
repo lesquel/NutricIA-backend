@@ -8,9 +8,9 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.domain import InvalidTokenError, OAuthProvider
-from app.auth.infrastructure.oauth_providers import verify_google_token, verify_apple_token
+from app.auth.infrastructure import verify_google_token, verify_apple_token
 from app.auth.infrastructure.repository import get_or_create_user
-from app.auth.presentation.schemas import TokenResponse, UserProfile
+from app.auth.presentation import TokenResponse, UserProfile
 from app.shared.infrastructure.security import create_access_token
 
 
