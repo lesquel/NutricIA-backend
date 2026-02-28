@@ -1,10 +1,27 @@
 """Auth infrastructure — User repository."""
 
+from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.infrastructure.models import User
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+# ── Password helpers ───────────────────────────
+
+def hash_password(plain: str) -> str:
+    """Return bcrypt hash for a plaintext password."""
+    return pwd_context.hash(plain)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    """Check a plaintext password against its bcrypt hash."""
+    return pwd_context.verify(plain, hashed)
+
+
+# ── OAuth (existing) ───────────────────────────
 
 async def get_or_create_user(
     db: AsyncSession,
@@ -30,6 +47,18 @@ async def get_or_create_user(
             user.avatar_url = avatar_url
         return user
 
+    # Check if email already exists (user may have registered with password)
+    result = await db.execute(select(User).where(User.email == email))
+    existing = result.scalar_one_or_none()
+    if existing is not None:
+        # Link OAuth to existing email account
+        existing.provider = provider
+        existing.provider_id = provider_id
+        existing.name = name
+        if avatar_url:
+            existing.avatar_url = avatar_url
+        return existing
+
     user = User(
         email=email,
         name=name,
@@ -41,6 +70,35 @@ async def get_or_create_user(
     await db.flush()
     return user
 
+
+# ── Email/Password ─────────────────────────────
+
+async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
+    """Find a user by email address."""
+    result = await db.execute(select(User).where(User.email == email))
+    return result.scalar_one_or_none()
+
+
+async def create_email_user(
+    db: AsyncSession,
+    email: str,
+    name: str,
+    password: str,
+) -> User:
+    """Create a new user with email + hashed password."""
+    user = User(
+        email=email,
+        name=name,
+        password_hash=hash_password(password),
+        provider=None,
+        provider_id=None,
+    )
+    db.add(user)
+    await db.flush()
+    return user
+
+
+# ── Generic ────────────────────────────────────
 
 async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
     """Get a user by their UUID."""

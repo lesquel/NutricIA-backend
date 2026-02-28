@@ -25,10 +25,16 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     apple_client_id: str = ""
 
-    # AI Provider: "gemini" | "openai"
-    ai_provider: Literal["gemini", "openai"] = "gemini"
+    # AI Provider
+    ai_provider: Literal[
+        "gemini", "openai", "anthropic", "deepseek", "groq", "mistral"
+    ] = "gemini"
     gemini_api_key: str = ""
     openai_api_key: str = ""
+    anthropic_api_key: str = ""
+    deepseek_api_key: str = ""
+    groq_api_key: str = ""
+    mistral_api_key: str = ""
 
     # Image processing
     max_image_size_px: int = 1024

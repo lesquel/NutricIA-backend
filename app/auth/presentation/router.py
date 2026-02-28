@@ -3,11 +3,52 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.auth.application.oauth_login import oauth_login, user_to_profile
-from app.auth.domain import InvalidTokenError
-from app.auth.presentation import OAuthRequest, TokenResponse, UserProfile
+from app.auth.application.email_auth import register, login
+from app.auth.domain import (
+    InvalidTokenError,
+    InvalidCredentialsError,
+    EmailAlreadyExistsError,
+)
+from app.auth.presentation import (
+    OAuthRequest,
+    RegisterRequest,
+    LoginRequest,
+    TokenResponse,
+    UserProfile,
+)
 from app.dependencies import DB, CurrentUser
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+# ── Email/Password ───────────────────────────
+
+
+@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+async def do_register(body: RegisterRequest, db: DB) -> TokenResponse:
+    """Register a new account with email and password."""
+    try:
+        return await register(db, body.email, body.password, body.name)
+    except EmailAlreadyExistsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=e.message,
+        )
+
+
+@router.post("/login", response_model=TokenResponse)
+async def do_login(body: LoginRequest, db: DB) -> TokenResponse:
+    """Log in with email and password."""
+    try:
+        return await login(db, body.email, body.password)
+    except InvalidCredentialsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=e.message,
+        )
+
+
+# ── OAuth ────────────────────────────────────
 
 
 @router.post("/oauth", response_model=TokenResponse)
@@ -25,6 +66,9 @@ async def do_oauth_login(body: OAuthRequest, db: DB) -> TokenResponse:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         )
+
+
+# ── Current User ─────────────────────────────
 
 
 @router.get("/me", response_model=UserProfile)
