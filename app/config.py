@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
 
+    # CORS
+    cors_origins: str = "http://localhost:8081,http://localhost:19006,http://localhost:3000"
+
     # OAuth
     google_client_id: str = ""
     apple_client_id: str = ""

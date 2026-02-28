@@ -14,10 +14,17 @@ logger = logging.getLogger("nutricia")
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup and shutdown events."""
     logger.info("🌱 NutricIA backend starting up...")
+    # Create tables if they don't exist (dev convenience)
+    from app.shared.infrastructure import engine, Base
+    # Import all models so Base.metadata knows about them
+    import app.auth.infrastructure.models  # noqa: F401
+    import app.habits.infrastructure  # noqa: F401
+    import app.meals.infrastructure  # noqa: F401
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
     logger.info("🍃 NutricIA backend shutting down...")
-    from app.shared.infrastructure import engine
-
     await engine.dispose()
 
 
@@ -29,15 +36,11 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS — allow Expo dev server and common origins
+    # CORS — origins from settings (.env CORS_ORIGINS)
+    origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:8081",  # Expo dev
-            "http://localhost:19006",  # Expo web
-            "http://localhost:3000",
-            "exp://localhost:8081",
-        ],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -13,7 +13,7 @@ import sys
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,8 +22,6 @@ from app.shared.infrastructure import Base, async_session, engine
 from app.auth.infrastructure.models import User
 from app.meals.infrastructure import Meal, MealTag
 from app.habits.infrastructure import Habit, HabitCheckIn, WaterIntake
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ── Seed Data -----------------------------------------------------------------
 
@@ -120,7 +118,7 @@ async def seed(session: AsyncSession, reset: bool = False) -> None:
         user = User(
             email=u["email"],
             name=u["name"],
-            password_hash=pwd_context.hash(u["password"]),
+            password_hash=bcrypt.hashpw(u["password"].encode(), bcrypt.gensalt()).decode(),
             calorie_goal=u["calorie_goal"],
             water_goal_ml=u["water_goal_ml"],
             dietary_preferences=u["dietary_preferences"],
