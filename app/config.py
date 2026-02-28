@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     deepseek_api_key: str = ""
+    deepseek_model: str = "deepseek-chat"
     groq_api_key: str = ""
     mistral_api_key: str = ""
 

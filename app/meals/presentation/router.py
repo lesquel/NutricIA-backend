@@ -6,7 +6,7 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, UploadFile, status
 
 from app.dependencies import DB, CurrentUser
-from app.meals.domain import FoodAnalysisError
+from app.meals.domain import FoodAnalysisError, AIProviderError
 from app.meals.application.scan_food import scan_food
 from app.meals.application.meal_crud import (
     save_meal,
@@ -53,6 +53,11 @@ async def scan_meal(file: UploadFile, user: CurrentUser) -> ScanResult:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=detail_map.get(e.error_type, f"Analysis failed: {e.error_type}"),
+        )
+    except AIProviderError as e:
+        raise HTTPException(
+            status_code=(status.HTTP_422_UNPROCESSABLE_ENTITY if 400 <= e.status_code < 500 else status.HTTP_502_BAD_GATEWAY),
+            detail=e.detail,
         )
     except Exception:
         logger.exception("Unexpected error during meal scan")

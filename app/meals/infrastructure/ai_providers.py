@@ -8,7 +8,7 @@ import logging
 import httpx
 
 from app.config import settings
-from app.meals.domain import FoodAnalysisError
+from app.meals.domain import FoodAnalysisError, AIProviderError
 from app.meals.presentation import ScanResult
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,15 @@ async def _call_openai_compatible(
                 "Content-Type": "application/json",
             },
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            response_text = exc.response.text[:400]
+            detail = (
+                f"AI provider rejected the request (status {exc.response.status_code}). "
+                f"Response: {response_text}"
+            )
+            raise AIProviderError(exc.response.status_code, detail) from exc
 
     data = response.json()
     return data["choices"][0]["message"]["content"]
@@ -228,8 +236,22 @@ class DeepSeekAnalyzer(AIFoodAnalyzer):
 
     async def analyze(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
-        payload = _openai_compatible_payload("deepseek-chat", b64_image, mime_type)
-        text = await _call_openai_compatible(self.API_URL, settings.deepseek_api_key, payload)
+        payload = _openai_compatible_payload(settings.deepseek_model, b64_image, mime_type)
+        try:
+            text = await _call_openai_compatible(
+                self.API_URL,
+                settings.deepseek_api_key,
+                payload,
+            )
+        except AIProviderError as exc:
+            if exc.status_code == 400:
+                raise AIProviderError(
+                    400,
+                    "DeepSeek devolvió 400 para análisis de imagen. "
+                    "Configura un modelo multimodal compatible en DEEPSEEK_MODEL "
+                    "o cambia AI_PROVIDER a gemini/openai con su API key.",
+                ) from exc
+            raise
         return _parse_result(text)
 
 
