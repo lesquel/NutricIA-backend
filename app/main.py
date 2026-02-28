@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("🌱 NutricIA backend starting up...")
     yield
     logger.info("🍃 NutricIA backend shutting down...")
-    from app.database import engine
+    from app.shared.infrastructure import engine
 
     await engine.dispose()
 
@@ -43,12 +43,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Register routers
-    from app.auth.router import router as auth_router
-    from app.meals.router import router as meals_router
-    from app.analytics.router import router as analytics_router
-    from app.habits.router import router as habits_router
-    from app.users.router import router as users_router
+    # Register routers (Clean Architecture — presentation layer)
+    from app.auth.presentation.router import router as auth_router
+    from app.meals.presentation.router import router as meals_router
+    from app.analytics.presentation.router import router as analytics_router
+    from app.habits.presentation.router import router as habits_router
+    from app.users.presentation.router import router as users_router
 
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(meals_router, prefix="/api/v1")

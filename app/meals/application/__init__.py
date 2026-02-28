@@ -1,0 +1,1 @@
+"""Meals application — use cases."""

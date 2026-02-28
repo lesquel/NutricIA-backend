@@ -1,0 +1,1 @@
+"""Analytics domain — value objects."""

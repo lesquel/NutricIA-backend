@@ -8,10 +8,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 # Import all models so Alembic can detect them for autogenerate
-from app.database import Base
-from app.auth.models import User  # noqa: F401
-from app.meals.models import Meal, MealTag  # noqa: F401
-from app.habits.models import Habit, HabitCheckIn, WaterIntake  # noqa: F401
+from app.shared.infrastructure import Base
+from app.auth.infrastructure.models import User  # noqa: F401
+from app.meals.infrastructure import Meal, MealTag  # noqa: F401
+from app.habits.infrastructure import Habit, HabitCheckIn, WaterIntake  # noqa: F401
 from app.config import settings
 
 # this is the Alembic Config object, which provides
