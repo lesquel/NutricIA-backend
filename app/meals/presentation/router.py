@@ -55,6 +55,11 @@ async def scan_meal(file: UploadFile, user: CurrentUser) -> ScanResult:
             detail=detail_map.get(e.error_type, f"Analysis failed: {e.error_type}"),
         )
     except AIProviderError as e:
+        if e.status_code == 429:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=e.detail,
+            )
         raise HTTPException(
             status_code=(status.HTTP_422_UNPROCESSABLE_ENTITY if 400 <= e.status_code < 500 else status.HTTP_502_BAD_GATEWAY),
             detail=e.detail,

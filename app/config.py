@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # AI Provider
     ai_provider: Literal[
-        "gemini", "openai", "anthropic", "deepseek", "groq", "mistral"
+        "gemini", "openai", "anthropic", "deepseek", "groq", "mistral", "mock"
     ] = "gemini"
     gemini_api_key: str = ""
     openai_api_key: str = ""

@@ -155,7 +155,21 @@ class GeminiAnalyzer(AIFoodAnalyzer):
                 f"{self.API_URL}?key={settings.gemini_api_key}",
                 json=payload,
             )
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                response_text = exc.response.text[:400]
+                if exc.response.status_code == 429:
+                    raise AIProviderError(
+                        429,
+                        "Gemini alcanzó el límite de cuota/rate limit (429). "
+                        "Espera unos minutos o usa otra API key/proveedor.",
+                    ) from exc
+                raise AIProviderError(
+                    exc.response.status_code,
+                    f"Gemini rechazó la solicitud (status {exc.response.status_code}). "
+                    f"Response: {response_text}",
+                ) from exc
 
         data = response.json()
         text = data["candidates"][0]["content"]["parts"][0]["text"]
@@ -285,6 +299,28 @@ class MistralAnalyzer(AIFoodAnalyzer):
         return _parse_result(text)
 
 
+# ── Mock (Local Dev) ─────────────────────────
+
+
+class MockAnalyzer(AIFoodAnalyzer):
+    """Local development analyzer that returns deterministic placeholder nutrition."""
+
+    async def analyze(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
+        if len(image_bytes) < 2_000:
+            raise FoodAnalysisError("blurry")
+
+        return ScanResult(
+            name="Mixed Meal",
+            ingredients=["Protein", "Carbohydrates", "Vegetables"],
+            calories=520,
+            protein_g=28,
+            carbs_g=54,
+            fat_g=18,
+            confidence=0.62,
+            tags=["Estimated", "Balanced", "Mock Analysis"],
+        )
+
+
 # ── Factory ───────────────────────────────────
 
 _ANALYZERS: dict[str, type[AIFoodAnalyzer]] = {
@@ -294,6 +330,7 @@ _ANALYZERS: dict[str, type[AIFoodAnalyzer]] = {
     "deepseek": DeepSeekAnalyzer,
     "groq": GroqAnalyzer,
     "mistral": MistralAnalyzer,
+    "mock": MockAnalyzer,
 }
 
 
