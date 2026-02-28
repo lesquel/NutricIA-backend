@@ -52,6 +52,26 @@ async def update_dietary_preferences(
     return user
 
 
+async def upload_avatar(
+    db: AsyncSession,
+    user: User,
+    avatar_url: str | None,
+) -> User:
+    """Set or clear the user's avatar URL."""
+    user.avatar_url = avatar_url
+    await db.flush()
+    return user
+
+
+async def delete_user_account(
+    db: AsyncSession,
+    user: User,
+) -> None:
+    """Permanently delete a user account."""
+    await db.delete(user)
+    await db.flush()
+
+
 def user_to_settings(user: User) -> UserSettingsResponse:
     """Convert User model to settings response."""
     prefs: list[str] = []
