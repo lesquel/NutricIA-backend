@@ -3,7 +3,7 @@
 import uuid
 from datetime import date, datetime, time, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.meals.infrastructure import Meal, MealTag
@@ -80,3 +80,31 @@ async def delete_meal_record(
 ) -> None:
     """Delete a meal."""
     await db.delete(meal)
+
+
+async def get_meal_dates_in_month_query(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    month_start: date,
+) -> list[date]:
+    """Get distinct dates in a month where user has logged meals."""
+    month_end = (
+        date(month_start.year + 1, 1, 1)
+        if month_start.month == 12
+        else date(month_start.year, month_start.month + 1, 1)
+    )
+    start_dt = datetime.combine(month_start, time.min, tzinfo=timezone.utc)
+    end_dt = datetime.combine(month_end, time.min, tzinfo=timezone.utc)
+
+    result = await db.execute(
+        select(func.date(Meal.logged_at).label("meal_date"))
+        .where(
+            Meal.user_id == user_id,
+            Meal.logged_at >= start_dt,
+            Meal.logged_at < end_dt,
+        )
+        .group_by(func.date(Meal.logged_at))
+        .order_by(func.date(Meal.logged_at))
+    )
+
+    return [row.meal_date for row in result]

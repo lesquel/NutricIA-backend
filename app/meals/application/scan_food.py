@@ -13,26 +13,35 @@ logger = logging.getLogger(__name__)
 
 
 async def scan_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-    """Compress image if needed and send to AI for analysis."""
-    processed = _compress_image(image_bytes)
-    return await analyze_food(processed, mime_type)
+    """Prepare image and send to AI for analysis."""
+    processed, processed_mime_type = _prepare_image_for_ai(image_bytes, mime_type)
+    return await analyze_food(processed, processed_mime_type)
 
 
-def _compress_image(image_bytes: bytes) -> bytes:
-    """Resize and compress image to stay under size limits."""
-    if len(image_bytes) <= settings.max_image_bytes:
-        return image_bytes
+def _prepare_image_for_ai(image_bytes: bytes, mime_type: str) -> tuple[bytes, str]:
+    """Normalize image for multimodal providers and keep payload under limits.
 
-    img = Image.open(io.BytesIO(image_bytes))
+    Returns image bytes and the effective MIME type.
+    """
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+    except Exception:
+        # Fallback to original content if PIL cannot decode it.
+        return image_bytes, mime_type
 
-    # Resize keeping aspect ratio
     max_px = settings.max_image_size_px
     img.thumbnail((max_px, max_px), Image.Resampling.LANCZOS)
 
-    # Save with reduced quality
-    if img.mode == "RGBA":
+    if img.mode not in ("RGB",):
         img = img.convert("RGB")
 
-    buffer = io.BytesIO()
-    img.save(buffer, format="JPEG", quality=80, optimize=True)
-    return buffer.getvalue()
+    quality = 85
+    while True:
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=quality, optimize=True)
+        output = buffer.getvalue()
+
+        if len(output) <= settings.max_image_bytes or quality <= 45:
+            return output, "image/jpeg"
+
+        quality -= 10

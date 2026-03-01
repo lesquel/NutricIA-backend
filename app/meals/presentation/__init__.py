@@ -55,3 +55,12 @@ class MealListResponse(BaseModel):
     total_protein: float
     total_carbs: float
     total_fat: float
+
+
+class MealImageUploadResponse(BaseModel):
+    image_url: str
+
+
+class MealCalendarResponse(BaseModel):
+    month: str
+    registered_dates: list[str]

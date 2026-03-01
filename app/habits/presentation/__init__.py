@@ -35,6 +35,7 @@ class HabitCheckInResponse(BaseModel):
 
 class WaterLogRequest(BaseModel):
     cups: int  # total cups for today (overwrite)
+    target_date: date | None = None
 
 
 class WaterLogResponse(BaseModel):

@@ -13,6 +13,7 @@ from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
+from pydantic import ValidationError
 
 from app.config import settings
 from app.meals.domain import FoodAnalysisError, AIProviderError
@@ -20,10 +21,13 @@ from app.meals.presentation import ScanResult
 
 logger = logging.getLogger(__name__)
 
+REQUIRED_SCAN_FIELDS = {"name", "calories", "protein_g", "carbs_g", "fat_g", "confidence"}
+
 ANALYSIS_PROMPT = """You are a precise nutritional analysis AI. Analyze this food photo.
 
 Return ONLY valid JSON with this exact schema (no markdown, no extra text):
 {
+    "reasoning": "step-by-step breakdown of visible ingredients, portion sizes, and their individual estimated macros",
   "name": "dish name in English",
   "ingredients": ["ingredient1", "ingredient2"],
   "calories": <number>,
@@ -36,6 +40,7 @@ Return ONLY valid JSON with this exact schema (no markdown, no extra text):
 
 Rules:
 - Calories, protein, carbs, fat must be realistic estimates for a single serving.
+- Pay special attention to Latin American and Ecuadorian regional ingredients (e.g., mote, plátano maduro, tostado, fritada).
 - Tags should describe nutritional qualities (e.g. "High Fiber", "Whole Grain", "Omega-3", "Low Sugar").
 - Confidence should reflect how clearly you can identify the food (1.0 = very clear, 0.5 = uncertain).
 - If the image does NOT contain food, return: {"error": "not_food"}
@@ -130,6 +135,91 @@ _PROVIDERS: dict[str, tuple[callable, str]] = {
 }
 
 
+def _extract_json_object(raw_text: str) -> dict[str, Any]:
+    """Extract the first valid JSON object from a possibly noisy model response."""
+    text = raw_text.strip()
+
+    # Fast path
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+
+    # Markdown fences
+    if text.startswith("```"):
+        inner = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        inner = inner[:-3] if inner.endswith("```") else inner
+        try:
+            parsed = json.loads(inner.strip())
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    # Scan for first decodable JSON object in the text
+    decoder = json.JSONDecoder()
+    for idx, char in enumerate(text):
+        if char != "{":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(text[idx:])
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            continue
+
+    raise AIProviderError(
+        status_code=502,
+        detail="La IA devolvió una respuesta inválida (no JSON). Intenta de nuevo o cambia de modelo.",
+    )
+
+
+def _normalize_scan_result(payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize common key variants from different models to ScanResult schema."""
+    normalized = dict(payload)
+
+    aliases = {
+        "food_name": "name",
+        "estimated_calories": "calories",
+        "kcal": "calories",
+        "protein": "protein_g",
+        "proteins": "protein_g",
+        "carbs": "carbs_g",
+        "carbohydrates": "carbs_g",
+        "fat": "fat_g",
+        "fats": "fat_g",
+    }
+
+    for src, dst in aliases.items():
+        if dst not in normalized and src in normalized:
+            normalized[dst] = normalized[src]
+
+    if "ingredients" not in normalized:
+        normalized["ingredients"] = []
+    elif isinstance(normalized["ingredients"], str):
+        normalized["ingredients"] = [item.strip() for item in normalized["ingredients"].split(",") if item.strip()]
+
+    if "tags" not in normalized:
+        normalized["tags"] = []
+    elif isinstance(normalized["tags"], str):
+        normalized["tags"] = [item.strip() for item in normalized["tags"].split(",") if item.strip()]
+
+    if "confidence" not in normalized:
+        normalized["confidence"] = 0.7
+
+    missing = sorted(field for field in REQUIRED_SCAN_FIELDS if field not in normalized)
+    if missing:
+        missing_text = ", ".join(missing)
+        raise AIProviderError(
+            status_code=422,
+            detail=f"La IA respondió en un formato incompleto. Faltan campos: {missing_text}. Intenta de nuevo o cambia de modelo.",
+        )
+
+    return normalized
+
+
 def _get_chat_model() -> BaseChatModel:
     """Instantiate the LangChain ChatModel for the configured provider + model."""
     provider = settings.ai_provider
@@ -185,28 +275,21 @@ async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> Sca
         ) from exc
 
     text = response.content if isinstance(response.content, str) else str(response.content)
-
-    # Strip markdown fences if the model wraps its output
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-    if text.endswith("```"):
-        text = text[:-3]
-    text = text.strip()
-
-    try:
-        result = json.loads(text)
-    except json.JSONDecodeError as exc:
-        logger.error("Failed to parse AI response as JSON: %s", text[:300])
-        raise AIProviderError(
-            status_code=502,
-            detail="AI returned invalid JSON. Try again or switch model.",
-        ) from exc
+    result = _extract_json_object(text)
 
     if "error" in result:
         raise FoodAnalysisError(result["error"])
 
-    return ScanResult(**result)
+    normalized = _normalize_scan_result(result)
+    try:
+        return ScanResult(**normalized)
+    except ValidationError as exc:
+        missing_fields = [".".join(str(part) for part in err["loc"]) for err in exc.errors() if err.get("type") == "missing"]
+        missing_text = ", ".join(missing_fields) if missing_fields else "campos requeridos"
+        raise AIProviderError(
+            status_code=422,
+            detail=f"La IA devolvió datos inválidos para nutrición ({missing_text}). Intenta de nuevo o cambia de modelo.",
+        ) from exc
 
 
 # ── Mock (local dev) ─────────────────────────

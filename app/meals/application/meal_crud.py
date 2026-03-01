@@ -11,6 +11,7 @@ from app.meals.infrastructure.repository import (
     get_daily_meals_query,
     get_meal_by_id_query,
     delete_meal_record,
+    get_meal_dates_in_month_query,
 )
 from app.meals.presentation import MealCreate, MealResponse
 
@@ -48,6 +49,15 @@ async def remove_meal(
 ) -> None:
     """Delete a meal."""
     await delete_meal_record(db, meal)
+
+
+async def get_meal_dates_in_month(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    month_start: date,
+) -> list[date]:
+    """Get distinct dates in a month with at least one meal."""
+    return await get_meal_dates_in_month_query(db, user_id, month_start)
 
 
 def meal_to_response(meal: Meal) -> MealResponse:
