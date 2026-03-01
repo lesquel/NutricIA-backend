@@ -20,9 +20,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from app.shared.infrastructure import engine, Base
 
     # Import all models so Base.metadata knows about them
-    import app.auth.infrastructure.models  # noqa: F401
-    import app.habits.infrastructure  # noqa: F401
-    import app.meals.infrastructure  # noqa: F401
+    from app.auth.infrastructure import models as _auth_models  # noqa: F401
+    from app.habits import infrastructure as _habits_infrastructure  # noqa: F401
+    from app.meals import infrastructure as _meals_infrastructure  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

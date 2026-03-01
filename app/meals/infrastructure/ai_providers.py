@@ -9,17 +9,24 @@ OPENAI_API_KEY, ANTHROPIC_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY).
 import base64
 import json
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from app.config import settings
 from app.meals.domain import FoodAnalysisError, AIProviderError
 from app.meals.presentation import ScanResult
 
 logger = logging.getLogger(__name__)
+
+
+def _to_secret(value: str | None) -> SecretStr | None:
+    if not value:
+        return None
+    return SecretStr(value)
+
 
 REQUIRED_SCAN_FIELDS = {
     "name",
@@ -76,8 +83,7 @@ def _build_openai(model: str, **kw: Any) -> BaseChatModel:
     return ChatOpenAI(
         model=model,
         temperature=0.1,
-        max_tokens=1024,
-        api_key=settings.openai_api_key or None,
+        api_key=_to_secret(settings.openai_api_key),
         **kw,
     )
 
@@ -85,11 +91,18 @@ def _build_openai(model: str, **kw: Any) -> BaseChatModel:
 def _build_anthropic(model: str, **kw: Any) -> BaseChatModel:
     from langchain_anthropic import ChatAnthropic
 
+    anthropic_api_key = _to_secret(settings.anthropic_api_key)
+    if anthropic_api_key is None:
+        return ChatAnthropic(
+            model_name=model,
+            temperature=0.1,
+            **kw,
+        )
+
     return ChatAnthropic(
-        model=model,
+        model_name=model,
         temperature=0.1,
-        max_tokens=1024,
-        api_key=settings.anthropic_api_key or None,
+        api_key=anthropic_api_key,
         **kw,
     )
 
@@ -100,8 +113,7 @@ def _build_deepseek(model: str, **kw: Any) -> BaseChatModel:
     return ChatOpenAI(
         model=model,
         temperature=0.1,
-        max_tokens=1024,
-        api_key=settings.deepseek_api_key or None,
+        api_key=_to_secret(settings.deepseek_api_key),
         base_url="https://api.deepseek.com",
         **kw,
     )
@@ -114,7 +126,7 @@ def _build_groq(model: str, **kw: Any) -> BaseChatModel:
         model=model,
         temperature=0.1,
         max_tokens=1024,
-        api_key=settings.groq_api_key or None,
+        api_key=_to_secret(settings.groq_api_key),
         **kw,
     )
 
@@ -123,15 +135,14 @@ def _build_mistral(model: str, **kw: Any) -> BaseChatModel:
     from langchain_mistralai import ChatMistralAI
 
     return ChatMistralAI(
-        model=model,
+        model_name=model,
         temperature=0.1,
-        max_tokens=1024,
-        api_key=settings.mistral_api_key or None,
+        api_key=_to_secret(settings.mistral_api_key),
         **kw,
     )
 
 
-_PROVIDERS: dict[str, tuple[callable, str]] = {
+_PROVIDERS: dict[str, tuple[Callable[[str], BaseChatModel], str]] = {
     #  provider  → (builder, default_model)
     "gemini": (_build_gemini, "gemini-2.0-flash"),
     "openai": (_build_openai, "gpt-4o"),
@@ -238,7 +249,7 @@ def _get_chat_model() -> BaseChatModel:
     provider = settings.ai_provider
 
     if provider == "mock":
-        return None  # handled separately in analyze()
+        raise RuntimeError("Mock provider does not require chat model")
 
     entry = _PROVIDERS.get(provider)
     if entry is None:

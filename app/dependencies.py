@@ -1,5 +1,5 @@
 from collections.abc import AsyncGenerator
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.shared.infrastructure import async_session
+
+if TYPE_CHECKING:
+    from app.auth.infrastructure.models import User
 
 security = HTTPBearer()
 
@@ -26,7 +29,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     db: Annotated[AsyncSession, Depends(get_db)],
-):
+) -> "User":
     from app.auth.infrastructure.models import User
 
     token = credentials.credentials
@@ -60,4 +63,4 @@ async def get_current_user(
 
 
 DB = Annotated[AsyncSession, Depends(get_db)]
-CurrentUser = Annotated[object, Depends(get_current_user)]
+CurrentUser = Annotated["User", Depends(get_current_user)]

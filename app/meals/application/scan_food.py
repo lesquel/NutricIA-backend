@@ -2,6 +2,7 @@
 
 import io
 import logging
+from typing import cast
 
 from PIL import Image
 
@@ -24,7 +25,7 @@ def _prepare_image_for_ai(image_bytes: bytes, mime_type: str) -> tuple[bytes, st
     Returns image bytes and the effective MIME type.
     """
     try:
-        img = Image.open(io.BytesIO(image_bytes))
+        img = cast(Image.Image, Image.open(io.BytesIO(image_bytes)))
     except Exception:
         # Fallback to original content if PIL cannot decode it.
         return image_bytes, mime_type

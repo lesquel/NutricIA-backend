@@ -169,7 +169,9 @@ async def get_meal_calendar(
 
 
 @router.get("/{meal_id}", response_model=MealResponse)
-async def get_single_meal(meal_id: str, user: CurrentUser, db: DB) -> MealResponse:
+async def get_single_meal(
+    meal_id: uuid.UUID, user: CurrentUser, db: DB
+) -> MealResponse:
     """Get a single meal by ID."""
     meal = await get_meal(db, user.id, meal_id)
     if meal is None:
@@ -180,7 +182,7 @@ async def get_single_meal(meal_id: str, user: CurrentUser, db: DB) -> MealRespon
 
 
 @router.delete("/{meal_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_meal(meal_id: str, user: CurrentUser, db: DB) -> None:
+async def delete_meal(meal_id: uuid.UUID, user: CurrentUser, db: DB) -> None:
     """Delete a meal."""
     meal = await get_meal(db, user.id, meal_id)
     if meal is None:
