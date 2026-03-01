@@ -6,7 +6,7 @@ import logging
 from PIL import Image
 
 from app.config import settings
-from app.meals.infrastructure.ai_providers import get_analyzer
+from app.meals.infrastructure.ai_providers import analyze_food
 from app.meals.presentation import ScanResult
 
 logger = logging.getLogger(__name__)
@@ -15,8 +15,7 @@ logger = logging.getLogger(__name__)
 async def scan_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
     """Compress image if needed and send to AI for analysis."""
     processed = _compress_image(image_bytes)
-    analyzer = get_analyzer()
-    return await analyzer.analyze(processed, mime_type)
+    return await analyze_food(processed, mime_type)
 
 
 def _compress_image(image_bytes: bytes) -> bytes:

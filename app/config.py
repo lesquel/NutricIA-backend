@@ -35,11 +35,11 @@ class Settings(BaseSettings):
     ai_provider: Literal[
         "gemini", "openai", "anthropic", "deepseek", "groq", "mistral", "mock"
     ] = "gemini"
-    gemini_api_key: str = ""
-    openai_api_key: str = ""
+    ai_model: str = ""  # Leave empty to use provider default
+    google_api_key: str = ""   # Gemini
+    openai_api_key: str = ""   # OpenAI / DeepSeek (via base_url)
     anthropic_api_key: str = ""
     deepseek_api_key: str = ""
-    deepseek_model: str = "deepseek-chat"
     groq_api_key: str = ""
     mistral_api_key: str = ""
 

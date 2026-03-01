@@ -1,11 +1,18 @@
-"""Meals infrastructure — AI food analysis providers (Strategy pattern)."""
+"""Meals infrastructure — AI food analysis via LangChain multimodal models.
 
-import abc
+Uses LangChain's unified ChatModel abstraction so swapping providers is just
+changing AI_PROVIDER + AI_MODEL in .env.  API keys are read automatically by
+each LangChain integration from their standard env vars (GOOGLE_API_KEY,
+OPENAI_API_KEY, ANTHROPIC_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY).
+"""
+
 import base64
 import json
 import logging
+from typing import Any
 
-import httpx
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import HumanMessage
 
 from app.config import settings
 from app.meals.domain import FoodAnalysisError, AIProviderError
@@ -36,310 +43,187 @@ Rules:
 """
 
 
-# ── Helpers ───────────────────────────────────
+# ── Provider registry ────────────────────────
 
 
-def _parse_result(text: str) -> ScanResult:
-    """Parse JSON text into a ScanResult, raising FoodAnalysisError on known errors."""
-    result = json.loads(text)
-    if "error" in result:
-        raise FoodAnalysisError(result["error"])
-    return ScanResult(**result)
+def _build_gemini(model: str, **kw: Any) -> BaseChatModel:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    return ChatGoogleGenerativeAI(
+        model=model,
+        temperature=0.1,
+        max_output_tokens=1024,
+        google_api_key=settings.google_api_key or None,
+        **kw,
+    )
 
 
-def _openai_compatible_payload(
-    model: str,
-    b64_image: str,
-    mime_type: str,
-    *,
-    json_mode: bool = True,
-) -> dict:
-    """Build an OpenAI-compatible chat/completions payload with a vision message."""
-    data_url = f"data:{mime_type};base64,{b64_image}"
-    payload: dict = {
-        "model": model,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": ANALYSIS_PROMPT},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": data_url, "detail": "low"},
-                    },
-                ],
-            }
-        ],
-        "max_tokens": 1024,
-        "temperature": 0.1,
-    }
-    if json_mode:
-        payload["response_format"] = {"type": "json_object"}
-    return payload
+def _build_openai(model: str, **kw: Any) -> BaseChatModel:
+    from langchain_openai import ChatOpenAI
+
+    return ChatOpenAI(
+        model=model,
+        temperature=0.1,
+        max_tokens=1024,
+        api_key=settings.openai_api_key or None,
+        **kw,
+    )
 
 
-async def _call_openai_compatible(
-    url: str,
-    api_key: str,
-    payload: dict,
-) -> str:
-    """POST to an OpenAI-compatible endpoint and return the assistant text."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            url,
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-        )
-        try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            response_text = exc.response.text[:400]
-            detail = (
-                f"AI provider rejected the request (status {exc.response.status_code}). "
-                f"Response: {response_text}"
-            )
-            raise AIProviderError(exc.response.status_code, detail) from exc
+def _build_anthropic(model: str, **kw: Any) -> BaseChatModel:
+    from langchain_anthropic import ChatAnthropic
 
-    data = response.json()
-    return data["choices"][0]["message"]["content"]
+    return ChatAnthropic(
+        model=model,
+        temperature=0.1,
+        max_tokens=1024,
+        api_key=settings.anthropic_api_key or None,
+        **kw,
+    )
 
 
-# ── Abstract Base ─────────────────────────────
+def _build_deepseek(model: str, **kw: Any) -> BaseChatModel:
+    from langchain_openai import ChatOpenAI
+
+    return ChatOpenAI(
+        model=model,
+        temperature=0.1,
+        max_tokens=1024,
+        api_key=settings.deepseek_api_key or None,
+        base_url="https://api.deepseek.com",
+        **kw,
+    )
 
 
-class AIFoodAnalyzer(abc.ABC):
-    """Abstract base for AI food analyzers."""
+def _build_groq(model: str, **kw: Any) -> BaseChatModel:
+    from langchain_groq import ChatGroq
 
-    @abc.abstractmethod
-    async def analyze(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-        ...
-
-
-# ── Google Gemini ─────────────────────────────
-
-
-class GeminiAnalyzer(AIFoodAnalyzer):
-    """Google Gemini multimodal food analyzer."""
-
-    API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-
-    async def analyze(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
-
-        payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": ANALYSIS_PROMPT},
-                        {
-                            "inline_data": {
-                                "mime_type": mime_type,
-                                "data": b64_image,
-                            }
-                        },
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.1,
-                "maxOutputTokens": 1024,
-                "responseMimeType": "application/json",
-            },
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{self.API_URL}?key={settings.gemini_api_key}",
-                json=payload,
-            )
-            try:
-                response.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                response_text = exc.response.text[:400]
-                if exc.response.status_code == 429:
-                    raise AIProviderError(
-                        429,
-                        "Gemini alcanzó el límite de cuota/rate limit (429). "
-                        "Espera unos minutos o usa otra API key/proveedor.",
-                    ) from exc
-                raise AIProviderError(
-                    exc.response.status_code,
-                    f"Gemini rechazó la solicitud (status {exc.response.status_code}). "
-                    f"Response: {response_text}",
-                ) from exc
-
-        data = response.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        return _parse_result(text)
+    return ChatGroq(
+        model=model,
+        temperature=0.1,
+        max_tokens=1024,
+        api_key=settings.groq_api_key or None,
+        **kw,
+    )
 
 
-# ── OpenAI ────────────────────────────────────
+def _build_mistral(model: str, **kw: Any) -> BaseChatModel:
+    from langchain_mistralai import ChatMistralAI
+
+    return ChatMistralAI(
+        model=model,
+        temperature=0.1,
+        max_tokens=1024,
+        api_key=settings.mistral_api_key or None,
+        **kw,
+    )
 
 
-class OpenAIAnalyzer(AIFoodAnalyzer):
-    """OpenAI GPT-4o multimodal food analyzer."""
-
-    API_URL = "https://api.openai.com/v1/chat/completions"
-
-    async def analyze(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
-        payload = _openai_compatible_payload("gpt-4o", b64_image, mime_type)
-        text = await _call_openai_compatible(self.API_URL, settings.openai_api_key, payload)
-        return _parse_result(text)
-
-
-# ── Anthropic Claude ──────────────────────────
-
-
-class ClaudeAnalyzer(AIFoodAnalyzer):
-    """Anthropic Claude (claude-sonnet-4-20250514) multimodal food analyzer."""
-
-    API_URL = "https://api.anthropic.com/v1/messages"
-
-    async def analyze(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
-
-        payload = {
-            "model": "claude-sonnet-4-20250514",
-            "max_tokens": 1024,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": mime_type,
-                                "data": b64_image,
-                            },
-                        },
-                        {"type": "text", "text": ANALYSIS_PROMPT},
-                    ],
-                }
-            ],
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                self.API_URL,
-                json=payload,
-                headers={
-                    "x-api-key": settings.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-            )
-            response.raise_for_status()
-
-        data = response.json()
-        text = data["content"][0]["text"]
-        return _parse_result(text)
-
-
-# ── DeepSeek ──────────────────────────────────
-
-
-class DeepSeekAnalyzer(AIFoodAnalyzer):
-    """DeepSeek (OpenAI-compatible) food analyzer."""
-
-    API_URL = "https://api.deepseek.com/chat/completions"
-
-    async def analyze(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
-        payload = _openai_compatible_payload(settings.deepseek_model, b64_image, mime_type)
-        try:
-            text = await _call_openai_compatible(
-                self.API_URL,
-                settings.deepseek_api_key,
-                payload,
-            )
-        except AIProviderError as exc:
-            if exc.status_code == 400:
-                raise AIProviderError(
-                    400,
-                    "DeepSeek devolvió 400 para análisis de imagen. "
-                    "Configura un modelo multimodal compatible en DEEPSEEK_MODEL "
-                    "o cambia AI_PROVIDER a gemini/openai con su API key.",
-                ) from exc
-            raise
-        return _parse_result(text)
-
-
-# ── Groq ──────────────────────────────────────
-
-
-class GroqAnalyzer(AIFoodAnalyzer):
-    """Groq (OpenAI-compatible) multimodal food analyzer."""
-
-    API_URL = "https://api.groq.com/openai/v1/chat/completions"
-
-    async def analyze(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
-        payload = _openai_compatible_payload("llama-4-scout-17b-16e-instruct", b64_image, mime_type)
-        text = await _call_openai_compatible(self.API_URL, settings.groq_api_key, payload)
-        return _parse_result(text)
-
-
-# ── Mistral ───────────────────────────────────
-
-
-class MistralAnalyzer(AIFoodAnalyzer):
-    """Mistral (pixtral-large) multimodal food analyzer."""
-
-    API_URL = "https://api.mistral.ai/v1/chat/completions"
-
-    async def analyze(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-        b64_image = base64.b64encode(image_bytes).decode("utf-8")
-        payload = _openai_compatible_payload("pixtral-large-latest", b64_image, mime_type)
-        text = await _call_openai_compatible(self.API_URL, settings.mistral_api_key, payload)
-        return _parse_result(text)
-
-
-# ── Mock (Local Dev) ─────────────────────────
-
-
-class MockAnalyzer(AIFoodAnalyzer):
-    """Local development analyzer that returns deterministic placeholder nutrition."""
-
-    async def analyze(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-        if len(image_bytes) < 2_000:
-            raise FoodAnalysisError("blurry")
-
-        return ScanResult(
-            name="Mixed Meal",
-            ingredients=["Protein", "Carbohydrates", "Vegetables"],
-            calories=520,
-            protein_g=28,
-            carbs_g=54,
-            fat_g=18,
-            confidence=0.62,
-            tags=["Estimated", "Balanced", "Mock Analysis"],
-        )
-
-
-# ── Factory ───────────────────────────────────
-
-_ANALYZERS: dict[str, type[AIFoodAnalyzer]] = {
-    "gemini": GeminiAnalyzer,
-    "openai": OpenAIAnalyzer,
-    "anthropic": ClaudeAnalyzer,
-    "deepseek": DeepSeekAnalyzer,
-    "groq": GroqAnalyzer,
-    "mistral": MistralAnalyzer,
-    "mock": MockAnalyzer,
+_PROVIDERS: dict[str, tuple[callable, str]] = {
+    #  provider  → (builder, default_model)
+    "gemini":    (_build_gemini,    "gemini-2.0-flash"),
+    "openai":    (_build_openai,    "gpt-4o"),
+    "anthropic": (_build_anthropic, "claude-sonnet-4-20250514"),
+    "deepseek":  (_build_deepseek,  "deepseek-chat"),
+    "groq":      (_build_groq,      "llama-4-scout-17b-16e-instruct"),
+    "mistral":   (_build_mistral,   "pixtral-large-latest"),
 }
 
 
-def get_analyzer() -> AIFoodAnalyzer:
-    """Factory: return the correct analyzer based on settings."""
-    cls = _ANALYZERS.get(settings.ai_provider)
-    if cls is None:
+def _get_chat_model() -> BaseChatModel:
+    """Instantiate the LangChain ChatModel for the configured provider + model."""
+    provider = settings.ai_provider
+
+    if provider == "mock":
+        return None  # handled separately in analyze()
+
+    entry = _PROVIDERS.get(provider)
+    if entry is None:
         raise ValueError(
-            f"Unknown AI provider '{settings.ai_provider}'. "
-            f"Supported: {', '.join(_ANALYZERS)}"
+            f"Unknown AI provider '{provider}'. "
+            f"Supported: {', '.join([*_PROVIDERS, 'mock'])}"
         )
-    return cls()
+
+    builder, default_model = entry
+    model = settings.ai_model or default_model
+    return builder(model)
+
+
+# ── Public API ───────────────────────────────
+
+
+async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
+    """Analyze a food image with the configured LLM provider.
+
+    Builds a LangChain multimodal message, invokes the model, parses the JSON
+    response into a ScanResult.
+    """
+    # Mock path for local dev without API keys
+    if settings.ai_provider == "mock":
+        return _mock_analyze(image_bytes)
+
+    llm = _get_chat_model()
+    b64_image = base64.b64encode(image_bytes).decode("utf-8")
+
+    message = HumanMessage(
+        content=[
+            {"type": "text", "text": ANALYSIS_PROMPT},
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:{mime_type};base64,{b64_image}"},
+            },
+        ],
+    )
+
+    try:
+        response = await llm.ainvoke([message])
+    except Exception as exc:
+        logger.error("AI provider error: %s", exc)
+        raise AIProviderError(
+            status_code=502,
+            detail=f"AI provider '{settings.ai_provider}' failed: {exc}",
+        ) from exc
+
+    text = response.content if isinstance(response.content, str) else str(response.content)
+
+    # Strip markdown fences if the model wraps its output
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
+
+    try:
+        result = json.loads(text)
+    except json.JSONDecodeError as exc:
+        logger.error("Failed to parse AI response as JSON: %s", text[:300])
+        raise AIProviderError(
+            status_code=502,
+            detail="AI returned invalid JSON. Try again or switch model.",
+        ) from exc
+
+    if "error" in result:
+        raise FoodAnalysisError(result["error"])
+
+    return ScanResult(**result)
+
+
+# ── Mock (local dev) ─────────────────────────
+
+
+def _mock_analyze(image_bytes: bytes) -> ScanResult:
+    """Deterministic placeholder result for local dev without API keys."""
+    if len(image_bytes) < 2_000:
+        raise FoodAnalysisError("blurry")
+
+    return ScanResult(
+        name="Mixed Meal",
+        ingredients=["Protein", "Carbohydrates", "Vegetables"],
+        calories=520,
+        protein_g=28,
+        carbs_g=54,
+        fat_g=18,
+        confidence=0.62,
+        tags=["Estimated", "Balanced", "Mock Analysis"],
+    )
