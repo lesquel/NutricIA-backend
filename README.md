@@ -32,6 +32,30 @@ uv run uvicorn app.main:app --reload --port 8000
 
 Once running, visit: `http://localhost:8000/docs`
 
+## Quality & Tests
+
+```bash
+# Format + lint
+uv run ruff format .
+uv run ruff check .
+
+# Type checks
+uv run mypy app/ --ignore-missing-imports
+
+# Tests
+uv run pytest
+```
+
+## Migration Notes
+
+- Always run migrations on a clean database in CI-like scenarios:
+
+```bash
+uv run alembic upgrade head
+```
+
+- If your local database is out of sync during development, reset it before retesting migrations.
+
 ## Project Structure
 
 ```
@@ -56,3 +80,9 @@ app/
 - **Analytics** — SQL-aggregated daily/weekly/monthly nutritional summaries
 - **Habit Garden** — Gamified habit tracking with streaks and plant growth
 - **Water Tracking** — Daily hydration logging
+
+## Contributing (Backend)
+
+- Follow root contribution guide: `../CONTRIBUTING.md`
+- Keep changes scoped to one module when possible (`auth`, `meals`, `habits`, etc.)
+- Update Alembic migration + related models together in the same PR
