@@ -14,7 +14,6 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 
 import bcrypt
-from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # ── Bootstrap ----------------------------------------------------------------
@@ -189,8 +188,8 @@ async def seed(session: AsyncSession, reset: bool = False) -> None:
 
     await session.commit()
     print("\n✅ Seed complete!")
-    print(f"   Login → jane@nutricia.dev / test1234")
-    print(f"   Login → alex@nutricia.dev / test1234")
+    print("   Login → jane@nutricia.dev / test1234")
+    print("   Login → alex@nutricia.dev / test1234")
 
 
 async def main() -> None:

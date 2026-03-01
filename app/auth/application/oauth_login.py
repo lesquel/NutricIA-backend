@@ -4,6 +4,7 @@ Verifies an OAuth token, upserts the user, and returns a JWT.
 """
 
 import json
+from typing import TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +13,9 @@ from app.auth.infrastructure import verify_google_token, verify_apple_token
 from app.auth.infrastructure.repository import get_or_create_user
 from app.auth.presentation import TokenResponse, UserProfile
 from app.shared.infrastructure.security import create_access_token
+
+if TYPE_CHECKING:
+    from app.auth.infrastructure.models import User
 
 
 async def oauth_login(
@@ -42,10 +46,8 @@ async def oauth_login(
     return TokenResponse(access_token=token, user=profile)
 
 
-def user_to_profile(user: "User") -> UserProfile:  # noqa: F821
+def user_to_profile(user: "User") -> UserProfile:
     """Convert a User model to a UserProfile schema."""
-    from app.auth.infrastructure.models import User  # noqa: F811
-
     prefs: list[str] = []
     if user.dietary_preferences:
         try:

@@ -1,7 +1,6 @@
 """Meals presentation — Pydantic request/response schemas."""
 
 from datetime import datetime
-from enum import StrEnum
 
 from pydantic import BaseModel, Field
 

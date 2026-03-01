@@ -60,4 +60,4 @@ async def get_current_user(
 
 
 DB = Annotated[AsyncSession, Depends(get_db)]
-CurrentUser = Annotated["User", Depends(get_current_user)]
+CurrentUser = Annotated[object, Depends(get_current_user)]

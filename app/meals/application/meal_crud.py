@@ -1,11 +1,11 @@
 """Use case: Save, list, get, delete meals."""
 
 import uuid
-from datetime import date, datetime, time, timezone
+from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.meals.infrastructure.models import Meal, MealTag
+from app.meals.infrastructure.models import Meal
 from app.meals.infrastructure.repository import (
     create_meal_record,
     get_daily_meals_query,
