@@ -9,6 +9,7 @@ from app.auth.infrastructure.models import User
 
 # ── Password helpers ───────────────────────────
 
+
 def hash_password(plain: str) -> str:
     """Return bcrypt hash for a plaintext password."""
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
@@ -20,6 +21,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 # ── OAuth (existing) ───────────────────────────
+
 
 async def get_or_create_user(
     db: AsyncSession,
@@ -71,6 +73,7 @@ async def get_or_create_user(
 
 # ── Email/Password ─────────────────────────────
 
+
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     """Find a user by email address."""
     result = await db.execute(select(User).where(User.email == email))
@@ -97,6 +100,7 @@ async def create_email_user(
 
 
 # ── Generic ────────────────────────────────────
+
 
 async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
     """Get a user by their UUID."""

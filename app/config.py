@@ -25,7 +25,9 @@ class Settings(BaseSettings):
     base_url: str = "http://localhost:8000"
 
     # CORS
-    cors_origins: str = "http://localhost:8081,http://localhost:19006,http://localhost:3000"
+    cors_origins: str = (
+        "http://localhost:8081,http://localhost:19006,http://localhost:3000"
+    )
 
     # OAuth
     google_client_id: str = ""
@@ -36,8 +38,8 @@ class Settings(BaseSettings):
         "gemini", "openai", "anthropic", "deepseek", "groq", "mistral", "mock"
     ] = "gemini"
     ai_model: str = ""  # Leave empty to use provider default
-    google_api_key: str = ""   # Gemini
-    openai_api_key: str = ""   # OpenAI / DeepSeek (via base_url)
+    google_api_key: str = ""  # Gemini
+    openai_api_key: str = ""  # OpenAI / DeepSeek (via base_url)
     anthropic_api_key: str = ""
     deepseek_api_key: str = ""
     groq_api_key: str = ""

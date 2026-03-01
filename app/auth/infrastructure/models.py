@@ -24,7 +24,9 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # OAuth provider info (nullable — email/password-only users won't have provider)
-    provider: Mapped[str | None] = mapped_column(String(50), nullable=True)  # "google" | "apple" | None
+    provider: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )  # "google" | "apple" | None
     provider_id: Mapped[str | None] = mapped_column(
         String(255), unique=True, index=True, nullable=True
     )

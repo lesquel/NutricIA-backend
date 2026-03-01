@@ -48,7 +48,9 @@ async def do_check_in(habit_id: str, user: CurrentUser, db: DB) -> HabitCheckInR
     )
     habit = result.scalar_one_or_none()
     if habit is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Habit not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Habit not found"
+        )
 
     new_streak, new_level = await check_in_habit(db, habit)
     return HabitCheckInResponse(
@@ -67,7 +69,9 @@ async def remove_habit(habit_id: str, user: CurrentUser, db: DB) -> None:
     )
     habit = result.scalar_one_or_none()
     if habit is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Habit not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Habit not found"
+        )
     await db.delete(habit)
 
 
@@ -75,7 +79,9 @@ async def remove_habit(habit_id: str, user: CurrentUser, db: DB) -> None:
 
 
 @router.post("/water", response_model=WaterLogResponse)
-async def set_water(body: WaterLogRequest, user: CurrentUser, db: DB) -> WaterLogResponse:
+async def set_water(
+    body: WaterLogRequest, user: CurrentUser, db: DB
+) -> WaterLogResponse:
     """Set water intake (cups) for a date (defaults to today)."""
     entry = await log_water(db, user.id, body.cups, body.target_date)
     goal_cups = round(user.water_goal_ml / 250)  # ~250ml per cup

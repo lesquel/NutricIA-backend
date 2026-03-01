@@ -67,7 +67,11 @@ async def scan_meal(file: UploadFile, user: CurrentUser) -> ScanResult:
                 detail=e.detail,
             )
         raise HTTPException(
-            status_code=(status.HTTP_422_UNPROCESSABLE_ENTITY if 400 <= e.status_code < 500 else status.HTTP_502_BAD_GATEWAY),
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+                if 400 <= e.status_code < 500
+                else status.HTTP_502_BAD_GATEWAY
+            ),
             detail=e.detail,
         )
     except Exception:
@@ -79,7 +83,9 @@ async def scan_meal(file: UploadFile, user: CurrentUser) -> ScanResult:
 
 
 @router.post("/upload-image", response_model=MealImageUploadResponse)
-async def upload_meal_image(file: UploadFile, user: CurrentUser) -> MealImageUploadResponse:
+async def upload_meal_image(
+    file: UploadFile, user: CurrentUser
+) -> MealImageUploadResponse:
     """Upload meal image and return a public URL to persist on the meal record."""
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(

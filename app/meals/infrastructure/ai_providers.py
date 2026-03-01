@@ -21,7 +21,14 @@ from app.meals.presentation import ScanResult
 
 logger = logging.getLogger(__name__)
 
-REQUIRED_SCAN_FIELDS = {"name", "calories", "protein_g", "carbs_g", "fat_g", "confidence"}
+REQUIRED_SCAN_FIELDS = {
+    "name",
+    "calories",
+    "protein_g",
+    "carbs_g",
+    "fat_g",
+    "confidence",
+}
 
 ANALYSIS_PROMPT = """You are a precise nutritional analysis AI. Analyze this food photo.
 
@@ -126,12 +133,12 @@ def _build_mistral(model: str, **kw: Any) -> BaseChatModel:
 
 _PROVIDERS: dict[str, tuple[callable, str]] = {
     #  provider  → (builder, default_model)
-    "gemini":    (_build_gemini,    "gemini-2.0-flash"),
-    "openai":    (_build_openai,    "gpt-4o"),
+    "gemini": (_build_gemini, "gemini-2.0-flash"),
+    "openai": (_build_openai, "gpt-4o"),
     "anthropic": (_build_anthropic, "claude-sonnet-4-20250514"),
-    "deepseek":  (_build_deepseek,  "deepseek-chat"),
-    "groq":      (_build_groq,      "llama-4-scout-17b-16e-instruct"),
-    "mistral":   (_build_mistral,   "pixtral-large-latest"),
+    "deepseek": (_build_deepseek, "deepseek-chat"),
+    "groq": (_build_groq, "llama-4-scout-17b-16e-instruct"),
+    "mistral": (_build_mistral, "pixtral-large-latest"),
 }
 
 
@@ -199,12 +206,18 @@ def _normalize_scan_result(payload: dict[str, Any]) -> dict[str, Any]:
     if "ingredients" not in normalized:
         normalized["ingredients"] = []
     elif isinstance(normalized["ingredients"], str):
-        normalized["ingredients"] = [item.strip() for item in normalized["ingredients"].split(",") if item.strip()]
+        normalized["ingredients"] = [
+            item.strip()
+            for item in normalized["ingredients"].split(",")
+            if item.strip()
+        ]
 
     if "tags" not in normalized:
         normalized["tags"] = []
     elif isinstance(normalized["tags"], str):
-        normalized["tags"] = [item.strip() for item in normalized["tags"].split(",") if item.strip()]
+        normalized["tags"] = [
+            item.strip() for item in normalized["tags"].split(",") if item.strip()
+        ]
 
     if "confidence" not in normalized:
         normalized["confidence"] = 0.7
@@ -274,7 +287,9 @@ async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> Sca
             detail=f"AI provider '{settings.ai_provider}' failed: {exc}",
         ) from exc
 
-    text = response.content if isinstance(response.content, str) else str(response.content)
+    text = (
+        response.content if isinstance(response.content, str) else str(response.content)
+    )
     result = _extract_json_object(text)
 
     if "error" in result:
@@ -284,8 +299,14 @@ async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> Sca
     try:
         return ScanResult(**normalized)
     except ValidationError as exc:
-        missing_fields = [".".join(str(part) for part in err["loc"]) for err in exc.errors() if err.get("type") == "missing"]
-        missing_text = ", ".join(missing_fields) if missing_fields else "campos requeridos"
+        missing_fields = [
+            ".".join(str(part) for part in err["loc"])
+            for err in exc.errors()
+            if err.get("type") == "missing"
+        ]
+        missing_text = (
+            ", ".join(missing_fields) if missing_fields else "campos requeridos"
+        )
         raise AIProviderError(
             status_code=422,
             detail=f"La IA devolvió datos inválidos para nutrición ({missing_text}). Intenta de nuevo o cambia de modelo.",

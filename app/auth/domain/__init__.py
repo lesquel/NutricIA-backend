@@ -5,6 +5,7 @@ from enum import StrEnum
 
 class AuthMethod(StrEnum):
     """Supported authentication methods."""
+
     EMAIL = "email"
     GOOGLE = "google"
     APPLE = "apple"

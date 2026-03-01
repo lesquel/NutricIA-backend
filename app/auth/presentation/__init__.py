@@ -5,12 +5,14 @@ from pydantic import BaseModel, EmailStr, Field
 
 # ── OAuth ────────────────────────────────────
 
+
 class OAuthRequest(BaseModel):
     id_token: str
     provider: str  # "google" | "apple"
 
 
 # ── Email/Password ───────────────────────────
+
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -24,6 +26,7 @@ class LoginRequest(BaseModel):
 
 
 # ── Responses ────────────────────────────────
+
 
 class TokenResponse(BaseModel):
     access_token: str

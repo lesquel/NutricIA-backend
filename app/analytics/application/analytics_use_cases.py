@@ -11,7 +11,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.meals.infrastructure import Meal
-from app.analytics.presentation import DailyAverage, DailySummary, MonthlyData, WeeklySummary
+from app.analytics.presentation import (
+    DailyAverage,
+    DailySummary,
+    MonthlyData,
+    WeeklySummary,
+)
 
 
 async def get_daily_summary(
@@ -48,7 +53,9 @@ async def get_daily_summary(
         total_fat=float(row.total_fat),
         meal_count=int(row.meal_count),
         calorie_goal=calorie_goal,
-        goal_percentage=round((total_cal / calorie_goal * 100) if calorie_goal > 0 else 0, 1),
+        goal_percentage=round(
+            (total_cal / calorie_goal * 100) if calorie_goal > 0 else 0, 1
+        ),
     )
 
 
@@ -60,7 +67,9 @@ async def get_weekly_summary(
 ) -> WeeklySummary:
     """Aggregate nutritional data for a 7-day week using a single query."""
     start_dt = datetime.combine(week_start, time.min, tzinfo=timezone.utc)
-    end_dt = datetime.combine(week_start + timedelta(days=6), time.max, tzinfo=timezone.utc)
+    end_dt = datetime.combine(
+        week_start + timedelta(days=6), time.max, tzinfo=timezone.utc
+    )
 
     # Single query: group by date, get per-day aggregates
     result = await db.execute(
@@ -87,27 +96,33 @@ async def get_weekly_summary(
         row = rows_by_date.get(day)
         if row:
             total_cal = float(row.total_calories)
-            days.append(DailySummary(
-                date=day,
-                total_calories=total_cal,
-                total_protein=float(row.total_protein),
-                total_carbs=float(row.total_carbs),
-                total_fat=float(row.total_fat),
-                meal_count=int(row.meal_count),
-                calorie_goal=calorie_goal,
-                goal_percentage=round((total_cal / calorie_goal * 100) if calorie_goal > 0 else 0, 1),
-            ))
+            days.append(
+                DailySummary(
+                    date=day,
+                    total_calories=total_cal,
+                    total_protein=float(row.total_protein),
+                    total_carbs=float(row.total_carbs),
+                    total_fat=float(row.total_fat),
+                    meal_count=int(row.meal_count),
+                    calorie_goal=calorie_goal,
+                    goal_percentage=round(
+                        (total_cal / calorie_goal * 100) if calorie_goal > 0 else 0, 1
+                    ),
+                )
+            )
         else:
-            days.append(DailySummary(
-                date=day,
-                total_calories=0,
-                total_protein=0,
-                total_carbs=0,
-                total_fat=0,
-                meal_count=0,
-                calorie_goal=calorie_goal,
-                goal_percentage=0,
-            ))
+            days.append(
+                DailySummary(
+                    date=day,
+                    total_calories=0,
+                    total_protein=0,
+                    total_carbs=0,
+                    total_fat=0,
+                    meal_count=0,
+                    calorie_goal=calorie_goal,
+                    goal_percentage=0,
+                )
+            )
 
     active_days = [d for d in days if d.meal_count > 0]
     n = max(len(active_days), 1)
@@ -167,27 +182,33 @@ async def get_monthly_data(
         row = rows_by_date.get(d)
         if row:
             total_cal = float(row.total_calories)
-            days.append(DailySummary(
-                date=d,
-                total_calories=total_cal,
-                total_protein=float(row.total_protein),
-                total_carbs=float(row.total_carbs),
-                total_fat=float(row.total_fat),
-                meal_count=int(row.meal_count),
-                calorie_goal=calorie_goal,
-                goal_percentage=round((total_cal / calorie_goal * 100) if calorie_goal > 0 else 0, 1),
-            ))
+            days.append(
+                DailySummary(
+                    date=d,
+                    total_calories=total_cal,
+                    total_protein=float(row.total_protein),
+                    total_carbs=float(row.total_carbs),
+                    total_fat=float(row.total_fat),
+                    meal_count=int(row.meal_count),
+                    calorie_goal=calorie_goal,
+                    goal_percentage=round(
+                        (total_cal / calorie_goal * 100) if calorie_goal > 0 else 0, 1
+                    ),
+                )
+            )
         else:
-            days.append(DailySummary(
-                date=d,
-                total_calories=0,
-                total_protein=0,
-                total_carbs=0,
-                total_fat=0,
-                meal_count=0,
-                calorie_goal=calorie_goal,
-                goal_percentage=0,
-            ))
+            days.append(
+                DailySummary(
+                    date=d,
+                    total_calories=0,
+                    total_protein=0,
+                    total_carbs=0,
+                    total_fat=0,
+                    meal_count=0,
+                    calorie_goal=calorie_goal,
+                    goal_percentage=0,
+                )
+            )
 
     active_days = [d for d in days if d.meal_count > 0]
     n = max(len(active_days), 1)

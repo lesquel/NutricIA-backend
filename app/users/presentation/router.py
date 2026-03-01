@@ -68,7 +68,11 @@ async def upload_user_avatar(
             detail="File too large. Maximum size is 5 MB.",
         )
 
-    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "jpg"
+    ext = (
+        file.filename.rsplit(".", 1)[-1].lower()
+        if file.filename and "." in file.filename
+        else "jpg"
+    )
     filename = f"{uuid.uuid4().hex}.{ext}"
     filepath = UPLOADS_DIR / filename
     filepath.write_bytes(image_bytes)

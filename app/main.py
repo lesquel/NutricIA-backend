@@ -18,6 +18,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("🌱 NutricIA backend starting up...")
     # Create tables if they don't exist (dev convenience)
     from app.shared.infrastructure import engine, Base
+
     # Import all models so Base.metadata knows about them
     import app.auth.infrastructure.models  # noqa: F401
     import app.habits.infrastructure  # noqa: F401

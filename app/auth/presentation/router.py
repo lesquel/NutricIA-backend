@@ -24,7 +24,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # ── Email/Password ───────────────────────────
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
+)
 async def do_register(body: RegisterRequest, db: DB) -> TokenResponse:
     """Register a new account with email and password."""
     try:
