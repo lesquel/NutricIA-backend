@@ -1,6 +1,7 @@
 """JWT security utilities — encode/decode tokens."""
 
 from datetime import datetime, timedelta, timezone
+from typing import cast
 
 from jose import JWTError, jwt
 
@@ -16,7 +17,10 @@ def create_access_token(user_id: str) -> str:
         "exp": expire,
         "iat": datetime.now(timezone.utc),
     }
-    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    return cast(
+        str,
+        jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm),
+    )
 
 
 def decode_access_token(token: str) -> str:
