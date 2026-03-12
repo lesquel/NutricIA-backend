@@ -1,7 +1,7 @@
 """Habits infrastructure — SQLAlchemy models."""
 
 import uuid
-from datetime import date, datetime
+from datetime import date as DateType, datetime
 
 from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -45,7 +45,7 @@ class HabitCheckIn(Base):
     habit_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("habits.id", ondelete="CASCADE"), index=True
     )
-    checked_at: Mapped[date] = mapped_column(Date)
+    checked_at: Mapped[DateType] = mapped_column(Date)
 
     habit: Mapped["Habit"] = relationship(back_populates="check_ins")
 
@@ -60,4 +60,4 @@ class WaterIntake(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     cups: Mapped[int] = mapped_column(Integer, default=0)
-    date: Mapped[date] = mapped_column(Date)
+    date: Mapped[DateType] = mapped_column(Date)
