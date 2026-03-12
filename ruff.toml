@@ -1,0 +1,20 @@
+target-version = "py312"
+line-length = 88
+
+[lint]
+select = [
+    "E", # pycodestyle errors
+    "F", # pyflakes
+]
+ignore = [
+    "E501", # handled by formatter
+]
+
+[lint.per-file-ignores]
+"tests/**/*.py" = ["F401", "F841"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
