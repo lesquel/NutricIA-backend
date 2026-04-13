@@ -16,18 +16,10 @@ logger = logging.getLogger("nutricia")
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup and shutdown events."""
     logger.info("🌱 NutricIA backend starting up...")
-    # Create tables if they don't exist (dev convenience)
-    from app.shared.infrastructure import engine, Base
-
-    # Import all models so Base.metadata knows about them
-    from app.auth.infrastructure import models as _auth_models  # noqa: F401
-    from app.habits import infrastructure as _habits_infrastructure  # noqa: F401
-    from app.meals import infrastructure as _meals_infrastructure  # noqa: F401
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     yield
     logger.info("🍃 NutricIA backend shutting down...")
+    from app.shared.infrastructure import engine
+
     await engine.dispose()
 
 

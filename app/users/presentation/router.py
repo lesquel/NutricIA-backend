@@ -3,9 +3,8 @@
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, UploadFile, status
+from fastapi import APIRouter, HTTPException, Request, UploadFile, status
 
-from app.config import settings
 from app.dependencies import DB, CurrentUser
 from app.users.application.user_use_cases import (
     delete_user_account,
@@ -29,23 +28,23 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("/me", response_model=UserSettingsResponse)
-async def get_settings(user: CurrentUser) -> UserSettingsResponse:
+async def get_settings(user: CurrentUser, request: Request) -> UserSettingsResponse:
     """Get current user settings and preferences."""
-    return user_to_settings(user)
+    return user_to_settings(user, base_url=str(request.base_url))
 
 
 @router.patch("/me", response_model=UserSettingsResponse)
 async def patch_profile(
-    body: UserProfileUpdate, user: CurrentUser, db: DB
+    body: UserProfileUpdate, user: CurrentUser, db: DB, request: Request
 ) -> UserSettingsResponse:
     """Update user profile (name, avatar)."""
     updated = await update_profile(db, user, body)
-    return user_to_settings(updated)
+    return user_to_settings(updated, base_url=str(request.base_url))
 
 
 @router.post("/me/avatar", response_model=UserSettingsResponse)
 async def upload_user_avatar(
-    file: UploadFile, user: CurrentUser, db: DB
+    file: UploadFile, user: CurrentUser, db: DB, request: Request
 ) -> UserSettingsResponse:
     """Upload a profile avatar image."""
     if not file.content_type or not file.content_type.startswith("image/"):
@@ -77,34 +76,37 @@ async def upload_user_avatar(
     filepath = UPLOADS_DIR / filename
     filepath.write_bytes(image_bytes)
 
-    avatar_url = f"{settings.base_url}/uploads/avatars/{filename}"
+    # Store relative path — resolved to absolute URL via request.base_url
+    avatar_url = f"/uploads/avatars/{filename}"
     updated = await upload_avatar(db, user, avatar_url)
-    return user_to_settings(updated)
+    return user_to_settings(updated, base_url=str(request.base_url))
 
 
 @router.delete("/me/avatar", response_model=UserSettingsResponse)
-async def delete_user_avatar(user: CurrentUser, db: DB) -> UserSettingsResponse:
+async def delete_user_avatar(
+    user: CurrentUser, db: DB, request: Request
+) -> UserSettingsResponse:
     """Remove the user's avatar."""
     updated = await upload_avatar(db, user, None)
-    return user_to_settings(updated)
+    return user_to_settings(updated, base_url=str(request.base_url))
 
 
 @router.patch("/me/goals", response_model=UserSettingsResponse)
 async def patch_goals(
-    body: UserGoalsUpdate, user: CurrentUser, db: DB
+    body: UserGoalsUpdate, user: CurrentUser, db: DB, request: Request
 ) -> UserSettingsResponse:
     """Update calorie and water goals."""
     updated = await update_goals(db, user, body)
-    return user_to_settings(updated)
+    return user_to_settings(updated, base_url=str(request.base_url))
 
 
 @router.patch("/me/diet", response_model=UserSettingsResponse)
 async def patch_diet(
-    body: DietaryPreferencesUpdate, user: CurrentUser, db: DB
+    body: DietaryPreferencesUpdate, user: CurrentUser, db: DB, request: Request
 ) -> UserSettingsResponse:
     """Update dietary preferences."""
     updated = await update_dietary_preferences(db, user, body)
-    return user_to_settings(updated)
+    return user_to_settings(updated, base_url=str(request.base_url))
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

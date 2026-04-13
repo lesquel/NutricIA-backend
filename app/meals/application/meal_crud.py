@@ -14,6 +14,7 @@ from app.meals.infrastructure.repository import (
     get_meal_dates_in_month_query,
 )
 from app.meals.presentation import MealCreate, MealResponse
+from app.shared.infrastructure.url_utils import resolve_image_url
 
 
 async def save_meal(
@@ -60,12 +61,18 @@ async def get_meal_dates_in_month(
     return await get_meal_dates_in_month_query(db, user_id, month_start)
 
 
-def meal_to_response(meal: Meal) -> MealResponse:
-    """Convert Meal model to response schema."""
+def meal_to_response(meal: Meal, base_url: str = "") -> MealResponse:
+    """Convert Meal model to response schema.
+
+    When *base_url* is provided, ``image_url`` is resolved to an absolute URL.
+    """
+    image_url = (
+        resolve_image_url(meal.image_url, base_url) if base_url else meal.image_url
+    )
     return MealResponse(
         id=str(meal.id),
         name=meal.name,
-        image_url=meal.image_url,
+        image_url=image_url,
         calories=meal.calories,
         protein_g=meal.protein_g,
         carbs_g=meal.carbs_g,

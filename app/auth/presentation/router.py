@@ -57,7 +57,7 @@ async def do_login(body: LoginRequest, db: DB) -> TokenResponse:
 async def do_oauth_login(body: OAuthRequest, db: DB) -> TokenResponse:
     """Authenticate with Google or Apple OAuth token."""
     try:
-        return await oauth_login(db, body.id_token, body.provider)
+        return await oauth_login(db, body.token, body.provider)
     except InvalidTokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

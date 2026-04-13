@@ -7,7 +7,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class OAuthRequest(BaseModel):
-    id_token: str
+    token: str
     provider: str  # "google" | "apple"
 
 

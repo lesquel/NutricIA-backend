@@ -5,7 +5,7 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, UploadFile, status
+from fastapi import APIRouter, HTTPException, Request, UploadFile, status
 
 from app.dependencies import DB, CurrentUser
 from app.meals.domain import FoodAnalysisError, AIProviderError
@@ -109,21 +109,25 @@ async def upload_meal_image(
     file_path = absolute_dir / filename
     file_path.write_bytes(image_bytes)
 
-    image_url = f"{settings.base_url}/{relative_dir.as_posix()}/{filename}"
+    # Store relative path — resolved to absolute URL via request.base_url
+    image_url = f"/{relative_dir.as_posix()}/{filename}"
     return MealImageUploadResponse(image_url=image_url)
 
 
 @router.post("", response_model=MealResponse, status_code=status.HTTP_201_CREATED)
-async def add_meal(body: MealCreate, user: CurrentUser, db: DB) -> MealResponse:
+async def add_meal(
+    body: MealCreate, user: CurrentUser, db: DB, request: Request
+) -> MealResponse:
     """Confirm and save a scanned or manually entered meal."""
     meal = await save_meal(db, user.id, body)
-    return meal_to_response(meal)
+    return meal_to_response(meal, base_url=str(request.base_url))
 
 
 @router.get("", response_model=MealListResponse)
 async def list_daily_meals(
     user: CurrentUser,
     db: DB,
+    request: Request,
     target_date: date | None = None,
 ) -> MealListResponse:
     """List meals for a given date (defaults to today)."""
@@ -131,7 +135,8 @@ async def list_daily_meals(
         target_date = date.today()
 
     meals = await list_meals(db, user.id, target_date)
-    meal_responses = [meal_to_response(m) for m in meals]
+    base = str(request.base_url)
+    meal_responses = [meal_to_response(m, base_url=base) for m in meals]
 
     return MealListResponse(
         meals=meal_responses,
@@ -170,7 +175,7 @@ async def get_meal_calendar(
 
 @router.get("/{meal_id}", response_model=MealResponse)
 async def get_single_meal(
-    meal_id: uuid.UUID, user: CurrentUser, db: DB
+    meal_id: uuid.UUID, user: CurrentUser, db: DB, request: Request
 ) -> MealResponse:
     """Get a single meal by ID."""
     meal = await get_meal(db, user.id, meal_id)
@@ -178,7 +183,7 @@ async def get_single_meal(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Meal not found"
         )
-    return meal_to_response(meal)
+    return meal_to_response(meal, base_url=str(request.base_url))
 
 
 @router.delete("/{meal_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -5,6 +5,7 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.infrastructure.models import User
+from app.shared.infrastructure.url_utils import resolve_image_url
 from app.users.presentation import (
     DietaryPreferencesUpdate,
     UserGoalsUpdate,
@@ -72,8 +73,11 @@ async def delete_user_account(
     await db.flush()
 
 
-def user_to_settings(user: User) -> UserSettingsResponse:
-    """Convert User model to settings response."""
+def user_to_settings(user: User, base_url: str = "") -> UserSettingsResponse:
+    """Convert User model to settings response.
+
+    When *base_url* is provided, ``avatar_url`` is resolved to an absolute URL.
+    """
     prefs: list[str] = []
     if user.dietary_preferences:
         try:
@@ -81,11 +85,15 @@ def user_to_settings(user: User) -> UserSettingsResponse:
         except (json.JSONDecodeError, TypeError):
             prefs = []
 
+    avatar_url = (
+        resolve_image_url(user.avatar_url, base_url) if base_url else user.avatar_url
+    )
+
     return UserSettingsResponse(
         id=str(user.id),
         email=user.email,
         name=user.name,
-        avatar_url=user.avatar_url,
+        avatar_url=avatar_url,
         calorie_goal=user.calorie_goal,
         water_goal_ml=user.water_goal_ml,
         dietary_preferences=prefs,
