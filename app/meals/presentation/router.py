@@ -26,7 +26,6 @@ from app.meals.presentation import (
     MealImageUploadResponse,
     MealCalendarResponse,
 )
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 

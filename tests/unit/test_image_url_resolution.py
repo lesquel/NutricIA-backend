@@ -44,15 +44,11 @@ class TestToRelativePath:
 
 class TestResolveImageUrl:
     def test_resolves_with_base_url_trailing_slash(self):
-        result = resolve_image_url(
-            "/uploads/meals/abc.jpg", "http://192.168.1.5:8000/"
-        )
+        result = resolve_image_url("/uploads/meals/abc.jpg", "http://192.168.1.5:8000/")
         assert result == "http://192.168.1.5:8000/uploads/meals/abc.jpg"
 
     def test_resolves_with_base_url_no_trailing_slash(self):
-        result = resolve_image_url(
-            "/uploads/meals/abc.jpg", "http://192.168.1.5:8000"
-        )
+        result = resolve_image_url("/uploads/meals/abc.jpg", "http://192.168.1.5:8000")
         assert result == "http://192.168.1.5:8000/uploads/meals/abc.jpg"
 
     def test_none_path_returns_none(self):
@@ -72,9 +68,7 @@ class TestResolveImageUrl:
         assert result == "http://192.168.1.5:8000/uploads/meals/abc.jpg"
 
     def test_avatar_url_resolved(self):
-        result = resolve_image_url(
-            "/uploads/avatars/face.png", "http://10.0.0.1:8000/"
-        )
+        result = resolve_image_url("/uploads/avatars/face.png", "http://10.0.0.1:8000/")
         assert result == "http://10.0.0.1:8000/uploads/avatars/face.png"
 
 
@@ -166,9 +160,7 @@ class TestUserSettingsResolution:
     def test_legacy_absolute_avatar_rewritten(self):
         from app.users.application.user_use_cases import user_to_settings
 
-        user = self._make_user(
-            avatar_url="http://old:8000/uploads/avatars/face.png"
-        )
+        user = self._make_user(avatar_url="http://old:8000/uploads/avatars/face.png")
         resp = user_to_settings(user, base_url="http://192.168.1.5:8000/")
         assert resp.avatar_url == "http://192.168.1.5:8000/uploads/avatars/face.png"
 

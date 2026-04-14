@@ -46,9 +46,7 @@ def upgrade() -> None:
                 nullable=False,
                 server_default=sa.text("now()"),
             ),
-            sa.ForeignKeyConstraint(
-                ["user_id"], ["users.id"], ondelete="CASCADE"
-            ),
+            sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         )
         op.create_index("ix_habits_user_id", "habits", ["user_id"])
 
@@ -58,13 +56,9 @@ def upgrade() -> None:
             sa.Column("id", UUID(as_uuid=True), primary_key=True, nullable=False),
             sa.Column("habit_id", UUID(as_uuid=True), nullable=False),
             sa.Column("checked_at", sa.Date(), nullable=False),
-            sa.ForeignKeyConstraint(
-                ["habit_id"], ["habits.id"], ondelete="CASCADE"
-            ),
+            sa.ForeignKeyConstraint(["habit_id"], ["habits.id"], ondelete="CASCADE"),
         )
-        op.create_index(
-            "ix_habit_check_ins_habit_id", "habit_check_ins", ["habit_id"]
-        )
+        op.create_index("ix_habit_check_ins_habit_id", "habit_check_ins", ["habit_id"])
 
     if not insp.has_table("water_intake"):
         op.create_table(
@@ -73,9 +67,7 @@ def upgrade() -> None:
             sa.Column("user_id", UUID(as_uuid=True), nullable=False),
             sa.Column("cups", sa.Integer(), nullable=False),
             sa.Column("date", sa.Date(), nullable=False),
-            sa.ForeignKeyConstraint(
-                ["user_id"], ["users.id"], ondelete="CASCADE"
-            ),
+            sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         )
         op.create_index("ix_water_intake_user_id", "water_intake", ["user_id"])
 
@@ -105,9 +97,7 @@ def upgrade() -> None:
                 nullable=False,
                 server_default=sa.text("now()"),
             ),
-            sa.ForeignKeyConstraint(
-                ["user_id"], ["users.id"], ondelete="CASCADE"
-            ),
+            sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         )
         op.create_index("ix_meals_user_id", "meals", ["user_id"])
 
@@ -117,9 +107,7 @@ def upgrade() -> None:
             sa.Column("id", UUID(as_uuid=True), primary_key=True, nullable=False),
             sa.Column("meal_id", UUID(as_uuid=True), nullable=False),
             sa.Column("label", sa.String(100), nullable=False),
-            sa.ForeignKeyConstraint(
-                ["meal_id"], ["meals.id"], ondelete="CASCADE"
-            ),
+            sa.ForeignKeyConstraint(["meal_id"], ["meals.id"], ondelete="CASCADE"),
         )
         op.create_index("ix_meal_tags_meal_id", "meal_tags", ["meal_id"])
 
