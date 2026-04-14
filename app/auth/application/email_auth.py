@@ -3,6 +3,8 @@
 Handles traditional JWT authentication alongside OAuth.
 """
 
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.domain import EmailAlreadyExistsError, InvalidCredentialsError
@@ -33,8 +35,6 @@ async def register(
     token = create_access_token(str(user.id))
     raw_refresh, token_hash = create_refresh_token(str(user.id))
     settings = Settings()
-    from datetime import datetime, timedelta, timezone
-
     expires_at = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_expire_days)
     await create_refresh_token_record(db, user.id, token_hash, expires_at)
     profile = user_to_profile(user)
@@ -64,6 +64,10 @@ async def login(
         raise InvalidCredentialsError()
 
     token = create_access_token(str(user.id))
+    raw_refresh, token_hash = create_refresh_token(str(user.id))
+    settings = Settings()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_expire_days)
+    await create_refresh_token_record(db, user.id, token_hash, expires_at)
     profile = user_to_profile(user)
 
-    return TokenResponse(access_token=token, user=profile)
+    return TokenResponse(access_token=token, refresh_token=raw_refresh, user=profile)
