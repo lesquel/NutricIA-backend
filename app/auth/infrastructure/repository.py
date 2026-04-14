@@ -1,10 +1,13 @@
 """Auth infrastructure — User repository."""
 
+import uuid
+from datetime import datetime
+
 import bcrypt
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.infrastructure.models import User
+from app.auth.infrastructure.models import RefreshToken, TokenBlocklist, User
 
 
 # ── Password helpers ───────────────────────────
@@ -106,3 +109,70 @@ async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
     """Get a user by their UUID."""
     result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
+
+
+# ── Refresh Tokens ─────────────────────────────
+
+
+async def create_refresh_token_record(
+    db: AsyncSession,
+    user_id: str,
+    token_hash: str,
+    expires_at: datetime,
+) -> RefreshToken:
+    """Persist a new refresh token record."""
+    record = RefreshToken(
+        id=uuid.uuid4(),
+        user_id=uuid.UUID(user_id),
+        token_hash=token_hash,
+        expires_at=expires_at,
+    )
+    db.add(record)
+    await db.flush()
+    return record
+
+
+async def get_refresh_token_by_hash(
+    db: AsyncSession, token_hash: str
+) -> RefreshToken | None:
+    """Look up a refresh token by its SHA-256 hash."""
+    result = await db.execute(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    return result.scalar_one_or_none()
+
+
+async def delete_refresh_token(db: AsyncSession, token_id: uuid.UUID) -> None:
+    """Delete a single refresh token by ID."""
+    await db.execute(delete(RefreshToken).where(RefreshToken.id == token_id))
+
+
+async def delete_all_user_refresh_tokens(db: AsyncSession, user_id: str) -> None:
+    """Delete all refresh tokens belonging to a user."""
+    await db.execute(
+        delete(RefreshToken).where(RefreshToken.user_id == uuid.UUID(user_id))
+    )
+
+
+# ── Token Blocklist ────────────────────────────
+
+
+async def add_to_blocklist(
+    db: AsyncSession, jti: str, expires_at: datetime
+) -> None:
+    """Add a JWT id to the blocklist (revoke an access token)."""
+    entry = TokenBlocklist(
+        id=uuid.uuid4(),
+        jti=jti,
+        expires_at=expires_at,
+    )
+    db.add(entry)
+    await db.flush()
+
+
+async def is_token_blocked(db: AsyncSession, jti: str) -> bool:
+    """Check if a JWT id has been revoked."""
+    result = await db.execute(
+        select(TokenBlocklist.id).where(TokenBlocklist.jti == jti)
+    )
+    return result.scalar_one_or_none() is not None

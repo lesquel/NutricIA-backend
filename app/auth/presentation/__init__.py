@@ -30,8 +30,13 @@ class LoginRequest(BaseModel):
 # ── Responses ────────────────────────────────
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user: "UserProfile"
 

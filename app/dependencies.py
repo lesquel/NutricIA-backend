@@ -4,12 +4,11 @@ import uuid
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.shared.infrastructure import async_session
+from app.shared.infrastructure.security import decode_access_token
 
 if TYPE_CHECKING:
     from app.auth.infrastructure.models import User
@@ -35,28 +34,29 @@ async def get_current_user(
 
     token = credentials.credentials
     try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret,
-            algorithms=[settings.jwt_algorithm],
-        )
-        user_id: str | None = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload",
-            )
-        try:
-            user_uuid = uuid.UUID(user_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload",
-            )
-    except JWTError:
+        payload = decode_access_token(token)
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
+        )
+
+    # Check blocklist if jti is present (legacy tokens without jti are allowed)
+    if payload.jti is not None:
+        from app.auth.infrastructure.repository import is_token_blocked
+
+        if await is_token_blocked(db, payload.jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+            )
+
+    try:
+        user_uuid = uuid.UUID(payload.user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
         )
 
     result = await db.execute(select(User).where(User.id == user_uuid))

@@ -1,10 +1,9 @@
 """Habits presentation — FastAPI router."""
 
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
 
 from app.dependencies import DB, CurrentUser
 from app.habits.application.habit_use_cases import (
@@ -15,7 +14,7 @@ from app.habits.application.habit_use_cases import (
     habit_to_response,
     log_water,
 )
-from app.habits.infrastructure.models import Habit
+from app.habits.infrastructure.repository import delete_habit, get_habit_by_id_and_user
 from app.habits.presentation import (
     HabitCheckInResponse,
     HabitCreate,
@@ -44,10 +43,7 @@ async def add_habit(body: HabitCreate, user: CurrentUser, db: DB) -> HabitRespon
 @router.post("/{habit_id}/check-in", response_model=HabitCheckInResponse)
 async def do_check_in(habit_id: uuid.UUID, user: CurrentUser, db: DB) -> HabitCheckInResponse:
     """Check in on a habit for today."""
-    result = await db.execute(
-        select(Habit).where(Habit.id == habit_id, Habit.user_id == user.id)
-    )
-    habit = result.scalar_one_or_none()
+    habit = await get_habit_by_id_and_user(db, habit_id, user.id)
     if habit is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Habit not found"
@@ -56,7 +52,7 @@ async def do_check_in(habit_id: uuid.UUID, user: CurrentUser, db: DB) -> HabitCh
     new_streak, new_level = await check_in_habit(db, habit)
     return HabitCheckInResponse(
         habit_id=str(habit.id),
-        checked_at=date.today(),
+        checked_at=datetime.now(timezone.utc).date(),
         new_streak=new_streak,
         new_level=new_level,
     )
@@ -65,15 +61,12 @@ async def do_check_in(habit_id: uuid.UUID, user: CurrentUser, db: DB) -> HabitCh
 @router.delete("/{habit_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_habit(habit_id: uuid.UUID, user: CurrentUser, db: DB) -> None:
     """Delete a habit."""
-    result = await db.execute(
-        select(Habit).where(Habit.id == habit_id, Habit.user_id == user.id)
-    )
-    habit = result.scalar_one_or_none()
+    habit = await get_habit_by_id_and_user(db, habit_id, user.id)
     if habit is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Habit not found"
         )
-    await db.delete(habit)
+    await delete_habit(db, habit)
 
 
 # ── Water ─────────────────────────────────────
@@ -101,5 +94,5 @@ async def get_water(
     return WaterLogResponse(
         cups=entry.cups if entry else 0,
         goal_cups=goal_cups,
-        date=target_date or date.today(),
+        date=target_date or datetime.now(timezone.utc).date(),
     )

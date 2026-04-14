@@ -1,7 +1,7 @@
 """Use case: Habit CRUD and check-in logic."""
 
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
 from sqlalchemy import select
@@ -44,7 +44,7 @@ async def check_in_habit(
 ) -> tuple[int, int]:
     """Check in on a habit for today. Returns (new_streak, new_level)."""
     if target_date is None:
-        target_date = date.today()
+        target_date = datetime.now(timezone.utc).date()
 
     # Check if already checked in today
     existing = await db.execute(
@@ -100,7 +100,7 @@ async def is_checked_today(db: AsyncSession, habit_id: uuid.UUID) -> bool:
     result = await db.execute(
         select(HabitCheckIn).where(
             HabitCheckIn.habit_id == habit_id,
-            HabitCheckIn.checked_at == date.today(),
+            HabitCheckIn.checked_at == datetime.now(timezone.utc).date(),
         )
     )
     return result.scalar_one_or_none() is not None
@@ -133,7 +133,7 @@ async def log_water(
 ) -> WaterIntake:
     """Set water cups for today (upsert)."""
     if target_date is None:
-        target_date = date.today()
+        target_date = datetime.now(timezone.utc).date()
 
     result = await db.execute(
         select(WaterIntake).where(
@@ -160,7 +160,7 @@ async def get_water_log(
 ) -> WaterIntake | None:
     """Get water intake for a date."""
     if target_date is None:
-        target_date = date.today()
+        target_date = datetime.now(timezone.utc).date()
 
     result = await db.execute(
         select(WaterIntake).where(

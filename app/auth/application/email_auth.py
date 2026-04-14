@@ -8,12 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.domain import EmailAlreadyExistsError, InvalidCredentialsError
 from app.auth.infrastructure.repository import (
     create_email_user,
+    create_refresh_token_record,
     get_user_by_email,
     verify_password,
 )
 from app.auth.presentation import TokenResponse
 from app.auth.application.oauth_login import user_to_profile
-from app.shared.infrastructure.security import create_access_token
+from app.config import Settings
+from app.shared.infrastructure.security import create_access_token, create_refresh_token
 
 
 async def register(
@@ -29,9 +31,15 @@ async def register(
 
     user = await create_email_user(db, email, name, password)
     token = create_access_token(str(user.id))
+    raw_refresh, token_hash = create_refresh_token(str(user.id))
+    settings = Settings()
+    from datetime import datetime, timedelta, timezone
+
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_expire_days)
+    await create_refresh_token_record(db, user.id, token_hash, expires_at)
     profile = user_to_profile(user)
 
-    return TokenResponse(access_token=token, user=profile)
+    return TokenResponse(access_token=token, refresh_token=raw_refresh, user=profile)
 
 
 async def login(

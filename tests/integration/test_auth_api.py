@@ -18,6 +18,7 @@ async def test_register_endpoint_returns_token_and_user(api_client: AsyncClient)
     assert response.status_code == 201
     payload = response.json()
     assert isinstance(payload.get("access_token"), str)
+    assert isinstance(payload.get("refresh_token"), str)
     assert payload.get("token_type") == "bearer"
     assert payload["user"]["email"] == "integration-register@example.com"
     assert payload["user"]["name"] == "Integration Register"
@@ -46,6 +47,7 @@ async def test_login_endpoint_returns_token_for_existing_user(api_client: AsyncC
     assert response.status_code == 200
     payload = response.json()
     assert isinstance(payload.get("access_token"), str)
+    assert isinstance(payload.get("refresh_token"), str)
     assert payload["user"]["email"] == "integration-login@example.com"
 
 
@@ -88,6 +90,7 @@ async def test_oauth_google_with_valid_token_returns_200(api_client: AsyncClient
     assert response.status_code == 200
     payload = response.json()
     assert isinstance(payload.get("access_token"), str)
+    assert isinstance(payload.get("refresh_token"), str)
     assert payload["token_type"] == "bearer"
     assert payload["user"]["email"] == "oauth@example.com"
     assert payload["user"]["name"] == "OAuth User"

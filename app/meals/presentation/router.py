@@ -30,6 +30,8 @@ from app.shared.infrastructure.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
+MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 MB
+
 router = APIRouter(prefix="/meals", tags=["meals"])
 
 
@@ -48,6 +50,11 @@ async def scan_meal(request: Request, file: UploadFile, user: CurrentUser) -> Sc
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Empty file",
+        )
+    if len(image_bytes) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large. Maximum size is 5MB.",
         )
 
     try:
@@ -100,6 +107,11 @@ async def upload_meal_image(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Empty file",
+        )
+    if len(image_bytes) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large. Maximum size is 5MB.",
         )
 
     suffix = Path(file.filename or "image.jpg").suffix or ".jpg"

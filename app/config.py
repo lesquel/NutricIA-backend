@@ -19,7 +19,8 @@ class Settings(BaseSettings):
     # JWT
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
+    jwt_expire_minutes: int = 60
+    jwt_refresh_expire_days: int = 7
 
     # Server
     base_url: str = "http://localhost:8000"
