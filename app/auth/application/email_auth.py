@@ -35,7 +35,9 @@ async def register(
     token = create_access_token(str(user.id))
     raw_refresh, token_hash = create_refresh_token(str(user.id))
     settings = Settings()
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_expire_days)
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        days=settings.jwt_refresh_expire_days
+    )
     await create_refresh_token_record(db, user.id, token_hash, expires_at)
     profile = user_to_profile(user)
 
@@ -66,7 +68,9 @@ async def login(
     token = create_access_token(str(user.id))
     raw_refresh, token_hash = create_refresh_token(str(user.id))
     settings = Settings()
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_expire_days)
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        days=settings.jwt_refresh_expire_days
+    )
     await create_refresh_token_record(db, user.id, token_hash, expires_at)
     profile = user_to_profile(user)
 

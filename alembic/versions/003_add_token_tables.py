@@ -47,9 +47,7 @@ def upgrade() -> None:
             ),
             sa.UniqueConstraint("token_hash", name="uq_refresh_tokens_token_hash"),
         )
-        op.create_index(
-            "ix_refresh_tokens_user_id", "refresh_tokens", ["user_id"]
-        )
+        op.create_index("ix_refresh_tokens_user_id", "refresh_tokens", ["user_id"])
         op.create_index(
             "ix_refresh_tokens_token_hash",
             "refresh_tokens",

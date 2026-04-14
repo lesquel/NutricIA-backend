@@ -41,7 +41,9 @@ async def add_habit(body: HabitCreate, user: CurrentUser, db: DB) -> HabitRespon
 
 
 @router.post("/{habit_id}/check-in", response_model=HabitCheckInResponse)
-async def do_check_in(habit_id: uuid.UUID, user: CurrentUser, db: DB) -> HabitCheckInResponse:
+async def do_check_in(
+    habit_id: uuid.UUID, user: CurrentUser, db: DB
+) -> HabitCheckInResponse:
     """Check in on a habit for today."""
     habit = await get_habit_by_id_and_user(db, habit_id, user.id)
     if habit is None:

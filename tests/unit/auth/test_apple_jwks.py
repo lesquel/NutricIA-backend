@@ -156,9 +156,7 @@ async def test_reject_wrong_audience(apple_keys):
 async def test_reject_wrong_issuer(apple_keys):
     """JWT with wrong issuer is rejected."""
     priv, jwks_response = apple_keys
-    token = _sign_jwt(
-        priv, _make_claims(iss="https://evil.example.com"), TEST_KID
-    )
+    token = _sign_jwt(priv, _make_claims(iss="https://evil.example.com"), TEST_KID)
 
     with (
         patch(
@@ -196,9 +194,7 @@ async def test_reject_unknown_kid(apple_keys):
 async def test_reject_expired_token(apple_keys):
     """Expired JWT is rejected."""
     priv, jwks_response = apple_keys
-    token = _sign_jwt(
-        priv, _make_claims(exp=int(time.time()) - 3600), TEST_KID
-    )
+    token = _sign_jwt(priv, _make_claims(exp=int(time.time()) - 3600), TEST_KID)
 
     with (
         patch(

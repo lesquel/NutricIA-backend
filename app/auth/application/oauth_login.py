@@ -4,15 +4,20 @@ Verifies an OAuth token, upserts the user, and returns a JWT.
 """
 
 import json
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.domain import InvalidTokenError, OAuthProvider
 from app.auth.infrastructure import verify_google_token, verify_apple_token
-from app.auth.infrastructure.repository import get_or_create_user
+from app.auth.infrastructure.repository import (
+    create_refresh_token_record,
+    get_or_create_user,
+)
 from app.auth.presentation import TokenResponse, UserProfile
-from app.shared.infrastructure.security import create_access_token
+from app.config import Settings
+from app.shared.infrastructure.security import create_access_token, create_refresh_token
 
 if TYPE_CHECKING:
     from app.auth.infrastructure.models import User
@@ -41,9 +46,13 @@ async def oauth_login(
     )
 
     token = create_access_token(str(user.id))
+    raw_refresh, token_hash = create_refresh_token(str(user.id))
+    s = Settings()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=s.jwt_refresh_expire_days)
+    await create_refresh_token_record(db, user.id, token_hash, expires_at)
     profile = user_to_profile(user)
 
-    return TokenResponse(access_token=token, user=profile)
+    return TokenResponse(access_token=token, refresh_token=raw_refresh, user=profile)
 
 
 def user_to_profile(user: "User") -> UserProfile:

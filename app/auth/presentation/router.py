@@ -1,5 +1,8 @@
 """Auth presentation — FastAPI router."""
 
+import hashlib
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.auth.application.oauth_login import oauth_login, user_to_profile
@@ -9,15 +12,23 @@ from app.auth.domain import (
     InvalidCredentialsError,
     EmailAlreadyExistsError,
 )
+from app.auth.infrastructure.repository import (
+    create_refresh_token_record,
+    delete_refresh_token,
+    get_refresh_token_by_hash,
+)
 from app.auth.presentation import (
     OAuthRequest,
+    RefreshRequest,
     RegisterRequest,
     LoginRequest,
     TokenResponse,
     UserProfile,
 )
+from app.config import Settings
 from app.dependencies import DB, CurrentUser
 from app.shared.infrastructure.rate_limit import limiter
+from app.shared.infrastructure.security import create_access_token, create_refresh_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -75,6 +86,62 @@ async def do_oauth_login(request: Request, body: OAuthRequest, db: DB) -> TokenR
 
 
 # ── Current User ─────────────────────────────
+
+
+@router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("10/minute")
+async def do_refresh(request: Request, body: RefreshRequest, db: DB) -> TokenResponse:
+    """Exchange a valid refresh token for a new access + refresh pair (rotation)."""
+    token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+    record = await get_refresh_token_by_hash(db, token_hash)
+
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+
+    # Compare timezone-aware (SQLite may strip tz info)
+    now = datetime.now(timezone.utc)
+    expires = (
+        record.expires_at.replace(tzinfo=timezone.utc)
+        if record.expires_at.tzinfo is None
+        else record.expires_at
+    )
+    if expires < now:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+
+    # Delete old refresh token (rotation)
+    await delete_refresh_token(db, record.id)
+
+    # Issue new pair
+    user_id = str(record.user_id)
+    new_access = create_access_token(user_id)
+    raw_refresh, new_hash = create_refresh_token(user_id)
+
+    settings = Settings()
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        days=settings.jwt_refresh_expire_days
+    )
+    await create_refresh_token_record(db, record.user_id, new_hash, expires_at)
+
+    # Build profile for response
+    from app.auth.infrastructure.repository import get_user_by_id
+
+    user = await get_user_by_id(db, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    profile = user_to_profile(user)
+    return TokenResponse(
+        access_token=new_access, refresh_token=raw_refresh, user=profile
+    )
 
 
 @router.get("/me", response_model=UserProfile)

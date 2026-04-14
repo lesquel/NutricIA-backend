@@ -17,7 +17,9 @@ from app.shared.infrastructure.rate_limit import limiter
 logger = logging.getLogger("nutricia")
 
 
-def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+def _rate_limit_exceeded_handler(
+    request: Request, exc: RateLimitExceeded
+) -> JSONResponse:
     """Custom 429 handler that includes Retry-After header."""
     retry_after = getattr(exc, "detail", "Rate limit exceeded")
     return JSONResponse(
@@ -81,6 +83,8 @@ def create_app() -> FastAPI:
     # Serve uploaded files (avatars, etc.)
     uploads_dir = Path("uploads")
     uploads_dir.mkdir(exist_ok=True)
+    (uploads_dir / "meals").mkdir(exist_ok=True)
+    (uploads_dir / "avatars").mkdir(exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
     return app

@@ -105,9 +105,10 @@ async def create_email_user(
 # ── Generic ────────────────────────────────────
 
 
-async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
+async def get_user_by_id(db: AsyncSession, user_id: str | uuid.UUID) -> User | None:
     """Get a user by their UUID."""
-    result = await db.execute(select(User).where(User.id == user_id))
+    uid = user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(user_id)
+    result = await db.execute(select(User).where(User.id == uid))
     return result.scalar_one_or_none()
 
 
@@ -116,14 +117,14 @@ async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
 
 async def create_refresh_token_record(
     db: AsyncSession,
-    user_id: str,
+    user_id: uuid.UUID,
     token_hash: str,
     expires_at: datetime,
 ) -> RefreshToken:
     """Persist a new refresh token record."""
     record = RefreshToken(
         id=uuid.uuid4(),
-        user_id=uuid.UUID(user_id),
+        user_id=user_id,
         token_hash=token_hash,
         expires_at=expires_at,
     )
@@ -147,19 +148,15 @@ async def delete_refresh_token(db: AsyncSession, token_id: uuid.UUID) -> None:
     await db.execute(delete(RefreshToken).where(RefreshToken.id == token_id))
 
 
-async def delete_all_user_refresh_tokens(db: AsyncSession, user_id: str) -> None:
+async def delete_all_user_refresh_tokens(db: AsyncSession, user_id: uuid.UUID) -> None:
     """Delete all refresh tokens belonging to a user."""
-    await db.execute(
-        delete(RefreshToken).where(RefreshToken.user_id == uuid.UUID(user_id))
-    )
+    await db.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
 
 
 # ── Token Blocklist ────────────────────────────
 
 
-async def add_to_blocklist(
-    db: AsyncSession, jti: str, expires_at: datetime
-) -> None:
+async def add_to_blocklist(db: AsyncSession, jti: str, expires_at: datetime) -> None:
     """Add a JWT id to the blocklist (revoke an access token)."""
     entry = TokenBlocklist(
         id=uuid.uuid4(),

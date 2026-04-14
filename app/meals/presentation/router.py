@@ -37,7 +37,9 @@ router = APIRouter(prefix="/meals", tags=["meals"])
 
 @router.post("/scan", response_model=ScanResult)
 @limiter.limit("10/minute")
-async def scan_meal(request: Request, file: UploadFile, user: CurrentUser) -> ScanResult:
+async def scan_meal(
+    request: Request, file: UploadFile, user: CurrentUser
+) -> ScanResult:
     """Upload a food photo for AI analysis. Returns nutritional data (not saved yet)."""
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(

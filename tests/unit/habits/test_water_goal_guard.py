@@ -13,7 +13,11 @@ class TestWaterGoalDivideByZero:
 
     @pytest.mark.asyncio
     async def test_water_goal_zero_no_exception(
-        self, api_client: AsyncClient, auth_headers: dict, test_user: User, db_session: AsyncSession
+        self,
+        api_client: AsyncClient,
+        auth_headers: dict,
+        test_user: User,
+        db_session: AsyncSession,
     ) -> None:
         """Setting water_goal_ml=0 on user must not cause division error."""
         # Force user.water_goal_ml to 0 (bypassing validation — simulating DB state)
@@ -27,7 +31,11 @@ class TestWaterGoalDivideByZero:
 
     @pytest.mark.asyncio
     async def test_water_post_goal_zero_no_exception(
-        self, api_client: AsyncClient, auth_headers: dict, test_user: User, db_session: AsyncSession
+        self,
+        api_client: AsyncClient,
+        auth_headers: dict,
+        test_user: User,
+        db_session: AsyncSession,
     ) -> None:
         """POST water with water_goal_ml=0 must use safe fallback."""
         test_user.water_goal_ml = 0

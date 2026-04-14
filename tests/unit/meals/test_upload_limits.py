@@ -7,9 +7,7 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_scan_rejects_file_over_5mb(
-    api_client: AsyncClient, auth_headers: dict
-):
+async def test_scan_rejects_file_over_5mb(api_client: AsyncClient, auth_headers: dict):
     """POST /meals/scan should return 413 for files over 5MB."""
     large_content = b"x" * (5 * 1024 * 1024 + 1)  # 5MB + 1 byte
     files = {"file": ("big.jpg", io.BytesIO(large_content), "image/jpeg")}
@@ -23,9 +21,7 @@ async def test_scan_rejects_file_over_5mb(
 
 
 @pytest.mark.asyncio
-async def test_scan_accepts_file_under_5mb(
-    api_client: AsyncClient, auth_headers: dict
-):
+async def test_scan_accepts_file_under_5mb(api_client: AsyncClient, auth_headers: dict):
     """POST /meals/scan should accept files <= 5MB (may fail for other reasons, but NOT 413)."""
     small_content = b"x" * (5 * 1024 * 1024)  # exactly 5MB
     files = {"file": ("ok.jpg", io.BytesIO(small_content), "image/jpeg")}
