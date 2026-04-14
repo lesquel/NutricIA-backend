@@ -1,5 +1,6 @@
 """Habits presentation — FastAPI router."""
 
+import uuid
 from datetime import date
 
 from fastapi import APIRouter, HTTPException, status
@@ -41,7 +42,7 @@ async def add_habit(body: HabitCreate, user: CurrentUser, db: DB) -> HabitRespon
 
 
 @router.post("/{habit_id}/check-in", response_model=HabitCheckInResponse)
-async def do_check_in(habit_id: str, user: CurrentUser, db: DB) -> HabitCheckInResponse:
+async def do_check_in(habit_id: uuid.UUID, user: CurrentUser, db: DB) -> HabitCheckInResponse:
     """Check in on a habit for today."""
     result = await db.execute(
         select(Habit).where(Habit.id == habit_id, Habit.user_id == user.id)
@@ -62,7 +63,7 @@ async def do_check_in(habit_id: str, user: CurrentUser, db: DB) -> HabitCheckInR
 
 
 @router.delete("/{habit_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_habit(habit_id: str, user: CurrentUser, db: DB) -> None:
+async def remove_habit(habit_id: uuid.UUID, user: CurrentUser, db: DB) -> None:
     """Delete a habit."""
     result = await db.execute(
         select(Habit).where(Habit.id == habit_id, Habit.user_id == user.id)
@@ -84,7 +85,7 @@ async def set_water(
 ) -> WaterLogResponse:
     """Set water intake (cups) for a date (defaults to today)."""
     entry = await log_water(db, user.id, body.cups, body.target_date)
-    goal_cups = round(user.water_goal_ml / 250)  # ~250ml per cup
+    goal_cups = round(max(user.water_goal_ml, 1) / 250)  # ~250ml per cup
     return WaterLogResponse(cups=entry.cups, goal_cups=goal_cups, date=entry.date)
 
 
@@ -96,7 +97,7 @@ async def get_water(
 ) -> WaterLogResponse:
     """Get water intake for a given date."""
     entry = await get_water_log(db, user.id, target_date)
-    goal_cups = round(user.water_goal_ml / 250)
+    goal_cups = round(max(user.water_goal_ml, 1) / 250)
     return WaterLogResponse(
         cups=entry.cups if entry else 0,
         goal_cups=goal_cups,

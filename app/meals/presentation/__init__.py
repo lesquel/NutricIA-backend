@@ -1,8 +1,16 @@
 """Meals presentation — Pydantic request/response schemas."""
 
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
+
+
+class MealType(StrEnum):
+    breakfast = "breakfast"
+    lunch = "lunch"
+    snack = "snack"
+    dinner = "dinner"
 
 
 class ScanResult(BaseModel):
@@ -24,7 +32,7 @@ class MealCreate(BaseModel):
     protein_g: float
     carbs_g: float
     fat_g: float
-    meal_type: str = "snack"  # breakfast | lunch | snack | dinner
+    meal_type: MealType = MealType.snack
     confidence_score: float = 0.0
     tags: list[str] = []
     image_url: str | None = None

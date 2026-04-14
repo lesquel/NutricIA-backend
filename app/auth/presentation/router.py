@@ -1,6 +1,6 @@
 """Auth presentation — FastAPI router."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.auth.application.oauth_login import oauth_login, user_to_profile
 from app.auth.application.email_auth import register, login
@@ -17,6 +17,7 @@ from app.auth.presentation import (
     UserProfile,
 )
 from app.dependencies import DB, CurrentUser
+from app.shared.infrastructure.rate_limit import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -27,7 +28,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post(
     "/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED
 )
-async def do_register(body: RegisterRequest, db: DB) -> TokenResponse:
+@limiter.limit("5/minute")
+async def do_register(request: Request, body: RegisterRequest, db: DB) -> TokenResponse:
     """Register a new account with email and password."""
     try:
         return await register(db, body.email, body.password, body.name)
@@ -39,7 +41,8 @@ async def do_register(body: RegisterRequest, db: DB) -> TokenResponse:
 
 
 @router.post("/login", response_model=TokenResponse)
-async def do_login(body: LoginRequest, db: DB) -> TokenResponse:
+@limiter.limit("5/minute")
+async def do_login(request: Request, body: LoginRequest, db: DB) -> TokenResponse:
     """Log in with email and password."""
     try:
         return await login(db, body.email, body.password)
@@ -54,7 +57,8 @@ async def do_login(body: LoginRequest, db: DB) -> TokenResponse:
 
 
 @router.post("/oauth", response_model=TokenResponse)
-async def do_oauth_login(body: OAuthRequest, db: DB) -> TokenResponse:
+@limiter.limit("5/minute")
+async def do_oauth_login(request: Request, body: OAuthRequest, db: DB) -> TokenResponse:
     """Authenticate with Google or Apple OAuth token."""
     try:
         return await oauth_login(db, body.token, body.provider)

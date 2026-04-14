@@ -1,5 +1,7 @@
 """Auth presentation — Pydantic request/response schemas."""
 
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -8,7 +10,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 class OAuthRequest(BaseModel):
     token: str
-    provider: str  # "google" | "apple"
+    provider: Literal["google", "apple"]
 
 
 # ── Email/Password ───────────────────────────

@@ -26,6 +26,7 @@ from app.meals.presentation import (
     MealImageUploadResponse,
     MealCalendarResponse,
 )
+from app.shared.infrastructure.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,8 @@ router = APIRouter(prefix="/meals", tags=["meals"])
 
 
 @router.post("/scan", response_model=ScanResult)
-async def scan_meal(file: UploadFile, user: CurrentUser) -> ScanResult:
+@limiter.limit("10/minute")
+async def scan_meal(request: Request, file: UploadFile, user: CurrentUser) -> ScanResult:
     """Upload a food photo for AI analysis. Returns nutritional data (not saved yet)."""
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(
@@ -82,8 +84,9 @@ async def scan_meal(file: UploadFile, user: CurrentUser) -> ScanResult:
 
 
 @router.post("/upload-image", response_model=MealImageUploadResponse)
+@limiter.limit("20/minute")
 async def upload_meal_image(
-    file: UploadFile, user: CurrentUser
+    request: Request, file: UploadFile, user: CurrentUser
 ) -> MealImageUploadResponse:
     """Upload meal image and return a public URL to persist on the meal record."""
     if not file.content_type or not file.content_type.startswith("image/"):

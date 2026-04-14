@@ -6,10 +6,25 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from app.config import settings
+from app.shared.infrastructure.rate_limit import limiter
 
 logger = logging.getLogger("nutricia")
+
+
+def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Custom 429 handler that includes Retry-After header."""
+    retry_after = getattr(exc, "detail", "Rate limit exceeded")
+    return JSONResponse(
+        status_code=429,
+        content={"detail": f"Rate limit exceeded: {retry_after}"},
+        headers={"Retry-After": "60"},
+    )
 
 
 @asynccontextmanager
@@ -40,6 +55,11 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Rate limiting — slowapi
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
 
     # Register routers (Clean Architecture — presentation layer)
     from app.auth.presentation.router import router as auth_router

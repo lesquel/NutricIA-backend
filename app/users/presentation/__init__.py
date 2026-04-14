@@ -1,11 +1,11 @@
 """Users presentation — Pydantic schemas."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class UserGoalsUpdate(BaseModel):
-    calorie_goal: int | None = None
-    water_goal_ml: int | None = None
+    calorie_goal: int | None = Field(default=None, ge=1)
+    water_goal_ml: int | None = Field(default=None, ge=1)
 
 
 class DietaryPreferencesUpdate(BaseModel):
