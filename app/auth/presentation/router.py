@@ -13,7 +13,9 @@ from app.auth.domain import (
     EmailAlreadyExistsError,
 )
 from app.auth.infrastructure.repository import (
+    add_to_blocklist,
     create_refresh_token_record,
+    delete_all_user_refresh_tokens,
     delete_refresh_token,
     get_refresh_token_by_hash,
 )
@@ -28,7 +30,11 @@ from app.auth.presentation import (
 from app.config import Settings
 from app.dependencies import DB, CurrentUser
 from app.shared.infrastructure.rate_limit import limiter
-from app.shared.infrastructure.security import create_access_token, create_refresh_token
+from app.shared.infrastructure.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_access_token,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -142,6 +148,31 @@ async def do_refresh(request: Request, body: RefreshRequest, db: DB) -> TokenRes
     return TokenResponse(
         access_token=new_access, refresh_token=raw_refresh, user=profile
     )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
+async def do_logout(
+    request: Request,
+    user: CurrentUser,
+    db: DB,
+) -> None:
+    """Log out: block current access token and revoke all refresh tokens."""
+    # Block the access token via its jti
+    token = request.headers.get("Authorization", "").removeprefix("Bearer ")
+    try:
+        payload = decode_access_token(token)
+        if payload.jti is not None:
+            settings_obj = Settings()
+            expires_at = datetime.now(timezone.utc) + timedelta(
+                minutes=settings_obj.jwt_expire_minutes
+            )
+            await add_to_blocklist(db, payload.jti, expires_at)
+    except Exception:
+        pass  # Token already validated by CurrentUser dependency
+
+    # Revoke all refresh tokens for this user
+    await delete_all_user_refresh_tokens(db, user.id)
 
 
 @router.get("/me", response_model=UserProfile)

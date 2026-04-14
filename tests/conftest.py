@@ -98,6 +98,11 @@ async def test_app(db_session: AsyncSession) -> AsyncGenerator[FastAPI, None]:
     """Create a FastAPI app with DB dependency overridden for tests."""
     app = create_app()
 
+    # Reset rate limiter state between tests
+    from app.shared.infrastructure.rate_limit import limiter
+
+    limiter.reset()
+
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         try:
             yield db_session

@@ -32,6 +32,19 @@ def _rate_limit_exceeded_handler(
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup and shutdown events."""
+    # Validate JWT secret is not the insecure default
+    if settings.jwt_secret == "change-me-in-production":
+        if settings.debug:
+            logger.warning(
+                "⚠️  JWT_SECRET is set to the default value. "
+                "Set a strong secret in .env before deploying."
+            )
+        else:
+            raise RuntimeError(
+                "JWT_SECRET must be changed from the default value in production. "
+                "Set a strong, random JWT_SECRET in your .env file."
+            )
+
     logger.info("🌱 NutricIA backend starting up...")
     yield
     logger.info("🍃 NutricIA backend shutting down...")

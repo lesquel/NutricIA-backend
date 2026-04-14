@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile, status
@@ -148,7 +148,7 @@ async def list_daily_meals(
 ) -> MealListResponse:
     """List meals for a given date (defaults to today)."""
     if target_date is None:
-        target_date = date.today()
+        target_date = datetime.now(timezone.utc).date()
 
     meals = await list_meals(db, user.id, target_date)
     base = str(request.base_url)
