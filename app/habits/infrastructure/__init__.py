@@ -3,8 +3,7 @@
 import uuid
 from datetime import date as DateType, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.shared.infrastructure import Base
@@ -14,10 +13,10 @@ class Habit(Base):
     __tablename__ = "habits"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(255))
     icon: Mapped[str] = mapped_column(String(50), default="eco")
@@ -40,10 +39,10 @@ class HabitCheckIn(Base):
     __tablename__ = "habit_check_ins"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     habit_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("habits.id", ondelete="CASCADE"), index=True
+        Uuid, ForeignKey("habits.id", ondelete="CASCADE"), index=True
     )
     checked_at: Mapped[DateType] = mapped_column(Date)
 
@@ -54,10 +53,10 @@ class WaterIntake(Base):
     __tablename__ = "water_intake"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     cups: Mapped[int] = mapped_column(Integer, default=0)
     date: Mapped[DateType] = mapped_column(Date)

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Database
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/nutricia"
+    database_url: str = "sqlite+aiosqlite:///./nutricia.db"
 
     # JWT
     jwt_secret: str = "change-me-in-production"
