@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Literal
 
@@ -48,6 +49,23 @@ class Settings(BaseSettings):
     # Image processing
     max_image_size_px: int = 1024
     max_image_bytes: int = 1_048_576  # 1MB
+
+    @field_validator(
+        "ai_provider",
+        "ai_model",
+        "google_api_key",
+        "openai_api_key",
+        "anthropic_api_key",
+        "deepseek_api_key",
+        "groq_api_key",
+        "mistral_api_key",
+        mode="before",
+    )
+    @classmethod
+    def strip_string_values(cls, value: str | None) -> str | None:
+        if isinstance(value, str):
+            return value.strip()
+        return value
 
 
 settings = Settings()

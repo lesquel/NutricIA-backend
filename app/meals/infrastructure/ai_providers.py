@@ -155,7 +155,7 @@ _PROVIDERS: dict[str, tuple[Callable[[str], BaseChatModel], str]] = {
     "openai": (_build_openai, "gpt-4o"),
     "anthropic": (_build_anthropic, "claude-sonnet-4-20250514"),
     "deepseek": (_build_deepseek, "deepseek-chat"),
-    "groq": (_build_groq, "llama-4-scout-17b-16e-instruct"),
+    "groq": (_build_groq, "llama-3.2-11b-vision-preview"),
     "mistral": (_build_mistral, "pixtral-large-latest"),
 }
 
