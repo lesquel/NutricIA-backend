@@ -21,6 +21,13 @@ from app.meals.presentation import ScanResult
 
 logger = logging.getLogger(__name__)
 
+VISION_FALLBACK_PROVIDERS = (
+    "groq",
+    "openai",
+    "anthropic",
+    "mistral",
+)
+
 
 def _to_secret(value: str | None) -> SecretStr | None:
     if not value:
@@ -244,9 +251,89 @@ def _normalize_scan_result(payload: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def _get_chat_model() -> BaseChatModel:
-    """Instantiate the LangChain ChatModel for the configured provider + model."""
-    provider = settings.ai_provider
+def _provider_has_credentials(provider: str) -> bool:
+    return {
+        "gemini": bool(settings.google_api_key),
+        "openai": bool(settings.openai_api_key),
+        "anthropic": bool(settings.anthropic_api_key),
+        "deepseek": bool(settings.deepseek_api_key),
+        "groq": bool(settings.groq_api_key),
+        "mistral": bool(settings.mistral_api_key),
+    }.get(provider, False)
+
+
+def _get_provider_sequence() -> list[str]:
+    primary: str = settings.ai_provider
+    sequence: list[str] = [primary]
+
+    for provider in VISION_FALLBACK_PROVIDERS:
+        if provider == primary:
+            continue
+        if _provider_has_credentials(provider):
+            sequence.append(provider)
+
+    return sequence
+
+
+def _summarize_provider_exception(exc: Exception) -> str:
+    summary = " ".join(str(exc).split())
+    if len(summary) > 280:
+        return f"{summary[:277]}..."
+    return summary
+
+
+def _classify_provider_exception(provider: str, exc: Exception) -> AIProviderError:
+    message = _summarize_provider_exception(exc)
+    lowered = message.lower()
+
+    if any(
+        token in lowered
+        for token in (
+            "resource_exhausted",
+            "quota exceeded",
+            "rate limit",
+            "too many requests",
+            "429",
+        )
+    ):
+        return AIProviderError(
+            status_code=429,
+            detail=(
+                f"AI provider '{provider}' exceeded its quota or rate limit. "
+                "Retry in a moment or switch to another configured provider."
+            ),
+            provider=provider,
+            fallback_eligible=True,
+        )
+
+    if any(
+        token in lowered
+        for token in (
+            "service unavailable",
+            "temporarily unavailable",
+            "overloaded",
+            "503",
+        )
+    ):
+        return AIProviderError(
+            status_code=503,
+            detail=(
+                f"AI provider '{provider}' is temporarily unavailable. "
+                "Please try again in a moment."
+            ),
+            provider=provider,
+            fallback_eligible=True,
+        )
+
+    return AIProviderError(
+        status_code=502,
+        detail=f"AI provider '{provider}' failed: {message}",
+        provider=provider,
+    )
+
+
+def _get_chat_model(provider: str) -> BaseChatModel:
+    """Instantiate the LangChain ChatModel for a provider + model."""
 
     if provider == "mock":
         raise RuntimeError("Mock provider does not require chat model")
@@ -259,27 +346,14 @@ def _get_chat_model() -> BaseChatModel:
         )
 
     builder, default_model = entry
-    model = settings.ai_model or default_model
+    model = settings.ai_model if provider == settings.ai_provider and settings.ai_model else default_model
     return builder(model)
 
 
-# ── Public API ───────────────────────────────
-
-
-async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-    """Analyze a food image with the configured LLM provider.
-
-    Builds a LangChain multimodal message, invokes the model, parses the JSON
-    response into a ScanResult.
-    """
-    # Mock path for local dev without API keys
-    if settings.ai_provider == "mock":
-        return _mock_analyze(image_bytes)
-
-    llm = _get_chat_model()
+def _build_scan_message(image_bytes: bytes, mime_type: str) -> HumanMessage:
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-    message = HumanMessage(
+    return HumanMessage(
         content=[
             {"type": "text", "text": ANALYSIS_PROMPT},
             {
@@ -289,14 +363,15 @@ async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> Sca
         ],
     )
 
+
+async def _invoke_provider(provider: str, message: HumanMessage) -> ScanResult:
+    llm = _get_chat_model(provider)
+
     try:
         response = await llm.ainvoke([message])
     except Exception as exc:
-        logger.error("AI provider error: %s", exc)
-        raise AIProviderError(
-            status_code=502,
-            detail=f"AI provider '{settings.ai_provider}' failed: {exc}",
-        ) from exc
+        logger.warning("AI provider %s error: %s", provider, exc)
+        raise _classify_provider_exception(provider, exc) from exc
 
     text = (
         response.content if isinstance(response.content, str) else str(response.content)
@@ -321,7 +396,53 @@ async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> Sca
         raise AIProviderError(
             status_code=422,
             detail=f"La IA devolvió datos inválidos para nutrición ({missing_text}). Intenta de nuevo o cambia de modelo.",
+            provider=provider,
         ) from exc
+
+
+# ── Public API ───────────────────────────────
+
+
+async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
+    """Analyze a food image with the configured LLM provider.
+
+    Builds a LangChain multimodal message, invokes the model, parses the JSON
+    response into a ScanResult.
+    """
+    # Mock path for local dev without API keys
+    if settings.ai_provider == "mock":
+        return _mock_analyze(image_bytes)
+
+    message = _build_scan_message(image_bytes, mime_type)
+    providers = _get_provider_sequence()
+
+    for index, provider in enumerate(providers):
+        try:
+            result = await _invoke_provider(provider, message)
+            if provider != settings.ai_provider:
+                logger.warning(
+                    "Meal scan fallback succeeded with provider %s after %s failed",
+                    provider,
+                    settings.ai_provider,
+                )
+            return result
+        except AIProviderError as exc:
+            is_last_provider = index == len(providers) - 1
+            if exc.fallback_eligible and not is_last_provider:
+                next_provider = providers[index + 1]
+                logger.warning(
+                    "Provider %s failed with fallback-eligible error; retrying with %s",
+                    provider,
+                    next_provider,
+                )
+                continue
+            raise
+
+    raise AIProviderError(
+        status_code=502,
+        detail="No AI provider could analyze the image.",
+        provider=settings.ai_provider,
+    )
 
 
 # ── Mock (local dev) ─────────────────────────
