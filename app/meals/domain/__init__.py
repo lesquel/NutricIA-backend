@@ -28,9 +28,11 @@ class AIProviderError(Exception):
         *,
         provider: str | None = None,
         fallback_eligible: bool = False,
+        retry_with_default_model: bool = False,
     ):
         self.status_code = status_code
         self.detail = detail
         self.provider = provider
         self.fallback_eligible = fallback_eligible
+        self.retry_with_default_model = retry_with_default_model
         super().__init__(detail)

@@ -155,7 +155,7 @@ _PROVIDERS: dict[str, tuple[Callable[[str], BaseChatModel], str]] = {
     "openai": (_build_openai, "gpt-4o"),
     "anthropic": (_build_anthropic, "claude-sonnet-4-20250514"),
     "deepseek": (_build_deepseek, "deepseek-chat"),
-    "groq": (_build_groq, "llama-3.2-11b-vision-preview"),
+    "groq": (_build_groq, "meta-llama/llama-4-scout-17b-16e-instruct"),
     "mistral": (_build_mistral, "pixtral-large-latest"),
 }
 
@@ -325,6 +325,28 @@ def _classify_provider_exception(provider: str, exc: Exception) -> AIProviderErr
             fallback_eligible=True,
         )
 
+    if any(
+        token in lowered
+        for token in (
+            "model_not_found",
+            "model decommissioned",
+            "decommissioned",
+            "no longer supported",
+            "does not exist",
+            "do not have access",
+        )
+    ):
+        return AIProviderError(
+            status_code=502,
+            detail=(
+                f"AI provider '{provider}' rejected the configured model. "
+                "Retrying with the provider default model or another configured provider."
+            ),
+            provider=provider,
+            fallback_eligible=True,
+            retry_with_default_model=True,
+        )
+
     return AIProviderError(
         status_code=502,
         detail=f"AI provider '{provider}' failed: {message}",
@@ -332,7 +354,18 @@ def _classify_provider_exception(provider: str, exc: Exception) -> AIProviderErr
     )
 
 
-def _get_chat_model(provider: str) -> BaseChatModel:
+def _get_default_model(provider: str) -> str:
+    entry = _PROVIDERS.get(provider)
+    if entry is None:
+        raise ValueError(
+            f"Unknown AI provider '{provider}'. "
+            f"Supported: {', '.join([*_PROVIDERS, 'mock'])}"
+        )
+
+    return entry[1]
+
+
+def _get_chat_model(provider: str, model_override: str | None = None) -> BaseChatModel:
     """Instantiate the LangChain ChatModel for a provider + model."""
 
     if provider == "mock":
@@ -346,7 +379,11 @@ def _get_chat_model(provider: str) -> BaseChatModel:
         )
 
     builder, default_model = entry
-    model = settings.ai_model if provider == settings.ai_provider and settings.ai_model else default_model
+    model = model_override or (
+        settings.ai_model
+        if provider == settings.ai_provider and settings.ai_model
+        else default_model
+    )
     return builder(model)
 
 
@@ -364,8 +401,12 @@ def _build_scan_message(image_bytes: bytes, mime_type: str) -> HumanMessage:
     )
 
 
-async def _invoke_provider(provider: str, message: HumanMessage) -> ScanResult:
-    llm = _get_chat_model(provider)
+async def _invoke_provider(
+    provider: str,
+    message: HumanMessage,
+    model_override: str | None = None,
+) -> ScanResult:
+    llm = _get_chat_model(provider, model_override=model_override)
 
     try:
         response = await llm.ainvoke([message])
@@ -427,6 +468,30 @@ async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> Sca
                 )
             return result
         except AIProviderError as exc:
+            configured_model = settings.ai_model if provider == settings.ai_provider else ""
+            default_model = _get_default_model(provider)
+
+            if (
+                provider == settings.ai_provider
+                and configured_model
+                and configured_model != default_model
+                and exc.retry_with_default_model
+            ):
+                logger.warning(
+                    "Provider %s rejected configured model %s; retrying with default model %s",
+                    provider,
+                    configured_model,
+                    default_model,
+                )
+                try:
+                    return await _invoke_provider(
+                        provider,
+                        message,
+                        model_override=default_model,
+                    )
+                except AIProviderError as retry_exc:
+                    exc = retry_exc
+
             is_last_provider = index == len(providers) - 1
             if exc.fallback_eligible and not is_last_provider:
                 next_provider = providers[index + 1]

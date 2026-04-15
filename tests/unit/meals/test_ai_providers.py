@@ -11,7 +11,11 @@ async def test_analyze_food_falls_back_when_primary_provider_is_quota_limited(
 ) -> None:
     attempts: list[str] = []
 
-    async def fake_invoke_provider(provider: str, message: object) -> ScanResult:
+    async def fake_invoke_provider(
+        provider: str,
+        message: object,
+        model_override: str | None = None,
+    ) -> ScanResult:
         attempts.append(provider)
         if provider == "gemini":
             raise AIProviderError(
@@ -50,7 +54,11 @@ async def test_analyze_food_falls_back_when_primary_provider_is_quota_limited(
 async def test_analyze_food_raises_quota_error_when_no_fallback_provider_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_invoke_provider(provider: str, message: object) -> ScanResult:
+    async def fake_invoke_provider(
+        provider: str,
+        message: object,
+        model_override: str | None = None,
+    ) -> ScanResult:
         raise AIProviderError(
             status_code=429,
             detail="quota exceeded",
@@ -82,3 +90,49 @@ def test_classify_provider_exception_maps_quota_errors_to_429() -> None:
     assert error.status_code == 429
     assert error.fallback_eligible is True
     assert error.provider == "gemini"
+
+
+@pytest.mark.asyncio
+async def test_analyze_food_retries_provider_default_when_model_is_decommissioned(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts: list[tuple[str, str | None]] = []
+
+    async def fake_invoke_provider(
+        provider: str,
+        message: object,
+        model_override: str | None = None,
+    ) -> ScanResult:
+        attempts.append((provider, model_override))
+        if model_override is None:
+            raise AIProviderError(
+                status_code=502,
+                detail="configured model rejected",
+                provider=provider,
+                fallback_eligible=True,
+                retry_with_default_model=True,
+            )
+
+        return ScanResult(
+            name="Groq Default Meal",
+            ingredients=["Rice"],
+            calories=320,
+            protein_g=8,
+            carbs_g=61,
+            fat_g=3,
+            confidence=0.77,
+            tags=["Recovered"],
+        )
+
+    monkeypatch.setattr(ai_providers.settings, "ai_provider", "groq")
+    monkeypatch.setattr(ai_providers.settings, "ai_model", "llama-3.2-11b-vision-preview")
+    monkeypatch.setattr(ai_providers.settings, "groq_api_key", "test-groq-key")
+    monkeypatch.setattr(ai_providers, "_invoke_provider", fake_invoke_provider)
+
+    result = await ai_providers.analyze_food(b"fake-image" * 500, "image/jpeg")
+
+    assert result.name == "Groq Default Meal"
+    assert attempts == [
+        ("groq", None),
+        ("groq", "meta-llama/llama-4-scout-17b-16e-instruct"),
+    ]
