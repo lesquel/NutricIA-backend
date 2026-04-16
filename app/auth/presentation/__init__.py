@@ -1,6 +1,6 @@
 """Auth presentation — Pydantic request/response schemas."""
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # ── OAuth ────────────────────────────────────
@@ -48,3 +48,30 @@ class UserProfile(BaseModel):
 
 # Rebuild model to resolve forward reference
 TokenResponse.model_rebuild()
+
+
+# ── Forgot Password ──────────────────────────
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str = "If an account with that email exists, a reset link has been sent."
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("token")
+    @classmethod
+    def token_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("token must not be empty")
+        return v
+
+
+class ResetPasswordResponse(BaseModel):
+    message: str = "Password reset successfully."

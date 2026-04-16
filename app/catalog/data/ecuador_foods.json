@@ -1,0 +1,164 @@
+[
+  {
+    "canonical_name": "Encebollado",
+    "aliases": ["encebollado de pescado", "sopa de albacora"],
+    "macros_per_100g": {
+      "calories": 85,
+      "protein_g": 8.5,
+      "carbs_g": 7.2,
+      "fat_g": 2.8,
+      "fiber_g": 0.8,
+      "sodium_mg": 320
+    }
+  },
+  {
+    "canonical_name": "Llapingachos",
+    "aliases": ["tortillas de papa", "llapingachos de papas"],
+    "macros_per_100g": {
+      "calories": 198,
+      "protein_g": 4.5,
+      "carbs_g": 32.0,
+      "fat_g": 6.2,
+      "fiber_g": 2.5
+    }
+  },
+  {
+    "canonical_name": "Locro de papa",
+    "aliases": ["locro", "locro ecuatoriano"],
+    "macros_per_100g": {
+      "calories": 110,
+      "protein_g": 4.0,
+      "carbs_g": 16.0,
+      "fat_g": 3.5,
+      "fiber_g": 1.2
+    }
+  },
+  {
+    "canonical_name": "Ceviche de camarón",
+    "aliases": ["ceviche ecuatoriano", "ceviche costeño"],
+    "macros_per_100g": {
+      "calories": 78,
+      "protein_g": 9.5,
+      "carbs_g": 6.8,
+      "fat_g": 1.2,
+      "sodium_mg": 420
+    }
+  },
+  {
+    "canonical_name": "Bolón de verde",
+    "aliases": ["bolón", "bolon de verde con queso"],
+    "macros_per_100g": {
+      "calories": 215,
+      "protein_g": 4.8,
+      "carbs_g": 38.0,
+      "fat_g": 5.5,
+      "fiber_g": 2.0
+    }
+  },
+  {
+    "canonical_name": "Humita",
+    "aliases": ["humitas de choclo", "tamal de choclo"],
+    "macros_per_100g": {
+      "calories": 185,
+      "protein_g": 4.2,
+      "carbs_g": 32.5,
+      "fat_g": 4.8,
+      "fiber_g": 2.2
+    }
+  },
+  {
+    "canonical_name": "Fritada",
+    "aliases": ["fritada de cerdo", "fritada serrana"],
+    "macros_per_100g": {
+      "calories": 295,
+      "protein_g": 22.0,
+      "carbs_g": 0.5,
+      "fat_g": 22.5
+    }
+  },
+  {
+    "canonical_name": "Hornado",
+    "aliases": ["hornado de cerdo", "chancho al horno"],
+    "macros_per_100g": {
+      "calories": 265,
+      "protein_g": 24.5,
+      "carbs_g": 2.0,
+      "fat_g": 17.0
+    }
+  },
+  {
+    "canonical_name": "Seco de pollo",
+    "aliases": ["seco de gallina", "seco ecuatoriano"],
+    "macros_per_100g": {
+      "calories": 142,
+      "protein_g": 15.5,
+      "carbs_g": 8.5,
+      "fat_g": 5.0,
+      "fiber_g": 1.0
+    }
+  },
+  {
+    "canonical_name": "Guatita",
+    "aliases": ["mondongo ecuatoriano", "guatita con maní"],
+    "macros_per_100g": {
+      "calories": 118,
+      "protein_g": 10.2,
+      "carbs_g": 9.5,
+      "fat_g": 4.2
+    }
+  },
+  {
+    "canonical_name": "Mote pillo",
+    "aliases": ["mote con huevo", "mote revuelto"],
+    "macros_per_100g": {
+      "calories": 165,
+      "protein_g": 6.5,
+      "carbs_g": 28.0,
+      "fat_g": 3.5,
+      "fiber_g": 4.0
+    }
+  },
+  {
+    "canonical_name": "Fanesca",
+    "aliases": ["fanesca de semana santa", "sopa de doce granos"],
+    "macros_per_100g": {
+      "calories": 135,
+      "protein_g": 8.0,
+      "carbs_g": 18.0,
+      "fat_g": 3.8,
+      "fiber_g": 3.5
+    }
+  },
+  {
+    "canonical_name": "Tigrillo",
+    "aliases": ["tigrillo de verde", "platano maduro revuelto"],
+    "macros_per_100g": {
+      "calories": 198,
+      "protein_g": 7.2,
+      "carbs_g": 30.5,
+      "fat_g": 6.0,
+      "fiber_g": 1.8
+    }
+  },
+  {
+    "canonical_name": "Caldo de pata",
+    "aliases": ["caldo de pata de res"],
+    "macros_per_100g": {
+      "calories": 72,
+      "protein_g": 7.5,
+      "carbs_g": 4.5,
+      "fat_g": 2.5
+    }
+  },
+  {
+    "canonical_name": "Choclo con queso",
+    "aliases": ["choclo asado", "mazorca con queso"],
+    "macros_per_100g": {
+      "calories": 148,
+      "protein_g": 5.5,
+      "carbs_g": 24.0,
+      "fat_g": 3.8,
+      "fiber_g": 2.8
+    }
+  }
+]

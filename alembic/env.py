@@ -9,7 +9,7 @@ from alembic import context
 
 # Import all models so Alembic can detect them for autogenerate
 from app.shared.infrastructure import Base
-from app.auth.infrastructure.models import User  # noqa: F401
+from app.auth.infrastructure.models import User, PasswordResetTokenModel  # noqa: F401
 from app.meals.infrastructure import Meal, MealTag  # noqa: F401
 from app.habits.infrastructure import Habit, HabitCheckIn, WaterIntake  # noqa: F401
 from app.config import settings

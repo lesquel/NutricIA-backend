@@ -13,7 +13,7 @@ async def test_scan_food_returns_meal_data(monkeypatch: pytest.MonkeyPatch):
     """Test that scanning a valid food image returns meal data."""
     fake_image = b"fake_image_bytes" * 200
 
-    async def fake_analyze_food(_: bytes, __: str) -> ScanResult:
+    async def fake_analyze_food(_: bytes, __: str, ___=None) -> ScanResult:
         return ScanResult(
             name="Mixed Meal",
             ingredients=["Protein", "Vegetables"],
@@ -41,7 +41,7 @@ async def test_scan_food_with_invalid_image(monkeypatch: pytest.MonkeyPatch):
     """Test scanning an invalid/blurry image raises FoodAnalysisError."""
     fake_small_image = b"tiny"
 
-    async def fake_analyze_food(_: bytes, __: str) -> ScanResult:
+    async def fake_analyze_food(_: bytes, __: str, ___=None) -> ScanResult:
         raise FoodAnalysisError("blurry")
 
     monkeypatch.setattr(scan_food_module, "analyze_food", fake_analyze_food)
@@ -57,7 +57,7 @@ async def test_scan_food_calculates_confidence(monkeypatch: pytest.MonkeyPatch):
     """Test that confidence score is calculated and within valid range."""
     fake_image = b"valid_image_data" * 200
 
-    async def fake_analyze_food(_: bytes, __: str) -> ScanResult:
+    async def fake_analyze_food(_: bytes, __: str, ___=None) -> ScanResult:
         return ScanResult(
             name="Oatmeal",
             ingredients=["Oats", "Milk", "Banana"],

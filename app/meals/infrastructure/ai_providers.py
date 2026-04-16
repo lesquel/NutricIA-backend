@@ -387,12 +387,52 @@ def _get_chat_model(provider: str, model_override: str | None = None) -> BaseCha
     return builder(model)
 
 
-def _build_scan_message(image_bytes: bytes, mime_type: str) -> HumanMessage:
+def _build_user_context_block(user_food_profile_hint: dict[str, Any]) -> str:
+    """Build a user context prefix from a food profile hint dict.
+
+    Expected keys: frequent_foods (list[{canonical_name, count}]),
+                   avg_daily_macros ({protein_g, carbs_g, fat_g}).
+    """
+    frequent: list[dict[str, Any]] = user_food_profile_hint.get("frequent_foods", [])
+    # Sort by count desc, take top 5
+    top_foods = sorted(frequent, key=lambda x: int(x.get("count", 0)), reverse=True)[:5]
+    food_names = ", ".join(
+        f["canonical_name"] for f in top_foods if f.get("canonical_name")
+    )
+
+    macros: dict[str, Any] = user_food_profile_hint.get(
+        "avg_daily_macros", {"protein_g": 0, "carbs_g": 0, "fat_g": 0}
+    )
+    protein = macros.get("protein_g", 0)
+    carbs = macros.get("carbs_g", 0)
+    fat = macros.get("fat_g", 0)
+
+    if not food_names:
+        return ""
+
+    return (
+        f"\n\n<user_context>El usuario suele comer: {food_names}. "
+        f"Macros diarios promedio: proteína {protein}g, carbohidratos {carbs}g, "
+        f"grasas {fat}g.</user_context>\n\n"
+    )
+
+
+def _build_scan_message(
+    image_bytes: bytes,
+    mime_type: str,
+    user_food_profile_hint: dict[str, Any] | None = None,
+) -> HumanMessage:
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
+
+    prompt = ANALYSIS_PROMPT
+    if user_food_profile_hint:
+        context_block = _build_user_context_block(user_food_profile_hint)
+        if context_block:
+            prompt = context_block + prompt
 
     return HumanMessage(
         content=[
-            {"type": "text", "text": ANALYSIS_PROMPT},
+            {"type": "text", "text": prompt},
             {
                 "type": "image_url",
                 "image_url": {"url": f"data:{mime_type};base64,{b64_image}"},
@@ -444,17 +484,28 @@ async def _invoke_provider(
 # ── Public API ───────────────────────────────
 
 
-async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
+async def analyze_food(
+    image_bytes: bytes,
+    mime_type: str = "image/jpeg",
+    user_food_profile_hint: dict[str, Any] | None = None,
+) -> ScanResult:
     """Analyze a food image with the configured LLM provider.
 
     Builds a LangChain multimodal message, invokes the model, parses the JSON
     response into a ScanResult.
+
+    Args:
+        image_bytes: Raw image bytes.
+        mime_type: MIME type of the image (e.g. "image/jpeg").
+        user_food_profile_hint: Optional dict with keys ``frequent_foods`` and
+            ``avg_daily_macros`` used to enrich the analysis prompt with user
+            context. Pass ``None`` (default) to skip enrichment.
     """
     # Mock path for local dev without API keys
     if settings.ai_provider == "mock":
         return _mock_analyze(image_bytes)
 
-    message = _build_scan_message(image_bytes, mime_type)
+    message = _build_scan_message(image_bytes, mime_type, user_food_profile_hint)
     providers = _get_provider_sequence()
 
     for index, provider in enumerate(providers):
@@ -468,7 +519,9 @@ async def analyze_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> Sca
                 )
             return result
         except AIProviderError as exc:
-            configured_model = settings.ai_model if provider == settings.ai_provider else ""
+            configured_model = (
+                settings.ai_model if provider == settings.ai_provider else ""
+            )
             default_model = _get_default_model(provider)
 
             if (

@@ -63,3 +63,15 @@ class MealImageUploadResponse(BaseModel):
 class MealCalendarResponse(BaseModel):
     month: str
     registered_dates: list[str]
+
+
+class MealUpdate(BaseModel):
+    """Partial update payload for a saved meal."""
+
+    name: str | None = None
+    calories: float | None = None
+    protein_g: float | None = None
+    carbs_g: float | None = None
+    fat_g: float | None = None
+    meal_type: str | None = None
+    image_url: str | None = None

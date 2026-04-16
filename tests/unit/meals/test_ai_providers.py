@@ -84,7 +84,9 @@ async def test_analyze_food_raises_quota_error_when_no_fallback_provider_exists(
 def test_classify_provider_exception_maps_quota_errors_to_429() -> None:
     error = ai_providers._classify_provider_exception(
         "gemini",
-        RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded for model gemini-2.0-flash"),
+        RuntimeError(
+            "429 RESOURCE_EXHAUSTED: quota exceeded for model gemini-2.0-flash"
+        ),
     )
 
     assert error.status_code == 429
@@ -125,7 +127,9 @@ async def test_analyze_food_retries_provider_default_when_model_is_decommissione
         )
 
     monkeypatch.setattr(ai_providers.settings, "ai_provider", "groq")
-    monkeypatch.setattr(ai_providers.settings, "ai_model", "llama-3.2-11b-vision-preview")
+    monkeypatch.setattr(
+        ai_providers.settings, "ai_model", "llama-3.2-11b-vision-preview"
+    )
     monkeypatch.setattr(ai_providers.settings, "groq_api_key", "test-groq-key")
     monkeypatch.setattr(ai_providers, "_invoke_provider", fake_invoke_provider)
 

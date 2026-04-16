@@ -1,10 +1,10 @@
 """Auth infrastructure — OAuth provider verification."""
 
 import httpx
-from jose import jwt as jose_jwt
 
 from app.config import settings
 from app.auth.domain import InvalidTokenError
+from app.auth.infrastructure.apple_jwks import verify_apple_token as _verify_apple_jwks
 
 
 async def verify_google_token(id_token: str) -> dict:
@@ -29,27 +29,8 @@ async def verify_google_token(id_token: str) -> dict:
 
 
 async def verify_apple_token(id_token: str) -> dict:
-    """Verify Apple Sign-In id_token and return user info.
+    """Verify Apple Sign-In id_token with full JWKS signature verification.
 
-    NOTE: Uses simplified verification. For production, implement full JWKS
-    signature verification with Apple's public keys.
+    Validates signature, issuer, audience, and expiry against Apple's public keys.
     """
-    async with httpx.AsyncClient() as client:
-        # Fetch Apple public keys
-        response = await client.get("https://appleid.apple.com/auth/keys")
-        if response.status_code != 200:
-            raise InvalidTokenError("Cannot fetch Apple public keys")
-
-        # TODO: Implement full JWKS verification
-        # For now, decode without verification to extract claims
-        claims = jose_jwt.get_unverified_claims(id_token)
-
-        if claims.get("aud") != settings.apple_client_id:
-            raise InvalidTokenError("Token audience mismatch")
-
-        return {
-            "email": claims.get("email", ""),
-            "name": claims.get("name", claims.get("email", "").split("@")[0]),
-            "avatar_url": None,
-            "provider_id": claims["sub"],
-        }
+    return await _verify_apple_jwks(id_token)

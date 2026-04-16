@@ -2,7 +2,7 @@
 
 import io
 import logging
-from typing import cast
+from typing import Any, cast
 
 from PIL import Image
 
@@ -13,10 +13,20 @@ from app.meals.presentation import ScanResult
 logger = logging.getLogger(__name__)
 
 
-async def scan_food(image_bytes: bytes, mime_type: str = "image/jpeg") -> ScanResult:
-    """Prepare image and send to AI for analysis."""
+async def scan_food(
+    image_bytes: bytes,
+    mime_type: str = "image/jpeg",
+    user_food_profile_hint: dict[str, Any] | None = None,
+) -> ScanResult:
+    """Prepare image and send to AI for analysis.
+
+    Args:
+        image_bytes: Raw image bytes from the uploaded file.
+        mime_type: MIME type of the image.
+        user_food_profile_hint: Optional food profile dict for prompt enrichment.
+    """
     processed, processed_mime_type = _prepare_image_for_ai(image_bytes, mime_type)
-    return await analyze_food(processed, processed_mime_type)
+    return await analyze_food(processed, processed_mime_type, user_food_profile_hint)
 
 
 def _prepare_image_for_ai(image_bytes: bytes, mime_type: str) -> tuple[bytes, str]:

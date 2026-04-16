@@ -45,3 +45,27 @@ class ProviderError(Exception):
     def __init__(self, provider: str, message: str = "Provider error"):
         self.message = f"{provider}: {message}"
         super().__init__(self.message)
+
+
+class TokenExpiredError(Exception):
+    """Raised when a reset token has expired."""
+
+    def __init__(self, message: str = "Token expired"):
+        self.message = message
+        super().__init__(self.message)
+
+
+class TokenAlreadyUsedError(Exception):
+    """Raised when a reset token has already been used."""
+
+    def __init__(self, message: str = "Token already used or invalid"):
+        self.message = message
+        super().__init__(self.message)
+
+
+class TokenNotFoundError(Exception):
+    """Raised when a reset token is not found."""
+
+    def __init__(self, message: str = "Token not found"):
+        self.message = message
+        super().__init__(self.message)

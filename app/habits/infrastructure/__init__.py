@@ -12,9 +12,7 @@ from app.shared.infrastructure import Base
 class Habit(Base):
     __tablename__ = "habits"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
@@ -38,9 +36,7 @@ class Habit(Base):
 class HabitCheckIn(Base):
     __tablename__ = "habit_check_ins"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     habit_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("habits.id", ondelete="CASCADE"), index=True
     )
@@ -52,9 +48,7 @@ class HabitCheckIn(Base):
 class WaterIntake(Base):
     __tablename__ = "water_intake"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True
     )

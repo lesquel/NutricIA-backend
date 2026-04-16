@@ -15,19 +15,13 @@ logger = logging.getLogger("nutricia")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup and shutdown events."""
-    logger.info("🌱 NutricIA backend starting up...")
-    # Create tables if they don't exist (dev convenience)
-    from app.shared.infrastructure import engine, Base
+    logger.info("NutricIA backend starting up...")
+    # Schema is managed exclusively by Alembic migrations.
+    # Run `make db-upgrade` (alembic upgrade head) before starting the server.
+    from app.shared.infrastructure import engine  # noqa: F401
 
-    # Import all models so Base.metadata knows about them
-    from app.auth.infrastructure import models as _auth_models  # noqa: F401
-    from app.habits import infrastructure as _habits_infrastructure  # noqa: F401
-    from app.meals import infrastructure as _meals_infrastructure  # noqa: F401
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     yield
-    logger.info("🍃 NutricIA backend shutting down...")
+    logger.info("NutricIA backend shutting down...")
     await engine.dispose()
 
 
@@ -55,12 +49,24 @@ def create_app() -> FastAPI:
     from app.analytics.presentation.router import router as analytics_router
     from app.habits.presentation.router import router as habits_router
     from app.users.presentation.router import router as users_router
+    from app.meal_plans.presentation.router import (
+        router as meal_plans_router,
+    )  # meal_plans (iter 3B)
+    from app.chat.presentation.router import router as chat_router
+    from app.learning_loop.presentation.router import (
+        router as learning_loop_router,
+    )  # learning_loop router (iter 4A)
 
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(meals_router, prefix="/api/v1")
     app.include_router(analytics_router, prefix="/api/v1")
     app.include_router(habits_router, prefix="/api/v1")
     app.include_router(users_router, prefix="/api/v1")
+    app.include_router(meal_plans_router, prefix="/api/v1")  # meal_plans (iter 3B)
+    app.include_router(chat_router, prefix="/api/v1")
+    app.include_router(
+        learning_loop_router, prefix="/api/v1"
+    )  # learning_loop (iter 4A)
 
     @app.get("/health")
     async def health_check():

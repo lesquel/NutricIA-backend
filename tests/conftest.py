@@ -12,7 +12,16 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.shared.infrastructure import Base
-from app.auth.infrastructure.models import User
+from app.auth.infrastructure.models import User, PasswordResetTokenModel  # noqa: F401
+from app.catalog.infrastructure.models import FoodCatalogModel  # noqa: F401
+from app.meal_plans.infrastructure.models import MealPlanModel, PlannedMealModel  # noqa: F401  # meal_plans models (iter 3B)
+from app.chat.infrastructure.models import ConversationModel, MessageModel  # noqa: F401
+
+# learning_loop models (iter 4A)
+from app.learning_loop.infrastructure.models import (
+    UserFoodProfileModel,
+    ScanCorrectionModel,
+)  # noqa: F401
 from app.shared.infrastructure.security import create_access_token, decode_access_token
 from app.dependencies import get_db
 from app.main import create_app

@@ -12,9 +12,7 @@ from app.shared.infrastructure import Base
 class Meal(Base):
     __tablename__ = "meals"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
@@ -50,9 +48,7 @@ class Meal(Base):
 class MealTag(Base):
     __tablename__ = "meal_tags"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     meal_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("meals.id", ondelete="CASCADE"), index=True
     )

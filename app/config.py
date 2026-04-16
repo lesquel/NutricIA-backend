@@ -46,6 +46,31 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     mistral_api_key: str = ""
 
+    # External data source API keys
+    usda_api_key: str = ""  # USDA FoodData Central (https://api.nal.usda.gov)
+
+    # SMTP (used by SmtpEmailAdapter; unset = use ConsoleEmailAdapter)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "noreply@nutricia.app"
+
+    # App URLs (for reset email deep links)
+    app_base_url: str = "http://localhost:8000"
+    frontend_deep_link_base: str = "nutricia://"
+
+    # Vector store backend
+    vector_store_backend: Literal["pgvector", "in_memory"] = "in_memory"
+
+    # Feature flags
+    chat_enabled: bool = True
+    meal_plans_enabled: bool = True
+    learning_loop_enabled: bool = True
+
+    # Admin
+    admin_emails: str = ""  # Comma-separated admin email list
+
     # Image processing
     max_image_size_px: int = 1024
     max_image_bytes: int = 1_048_576  # 1MB
@@ -59,6 +84,7 @@ class Settings(BaseSettings):
         "deepseek_api_key",
         "groq_api_key",
         "mistral_api_key",
+        "usda_api_key",
         mode="before",
     )
     @classmethod

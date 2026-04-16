@@ -1,5 +1,7 @@
 """Auth infrastructure — User repository."""
 
+import uuid
+
 import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -102,7 +104,17 @@ async def create_email_user(
 # ── Generic ────────────────────────────────────
 
 
-async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
-    """Get a user by their UUID."""
+async def get_user_by_id(db: AsyncSession, user_id: str | uuid.UUID) -> User | None:
+    """Get a user by their UUID.
+
+    Accepts either a UUID object or a string representation. SQLite's
+    UUID type processor requires a UUID object (it reads `.hex`), so
+    string inputs are normalized here before the query.
+    """
+    if isinstance(user_id, str):
+        try:
+            user_id = uuid.UUID(user_id)
+        except ValueError:
+            return None
     result = await db.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
