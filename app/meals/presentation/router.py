@@ -164,7 +164,7 @@ async def get_meal_calendar(
     dates = await get_meal_dates_in_month(db, user.id, month_start)
     return MealCalendarResponse(
         month=month,
-        registered_dates=[d.isoformat() for d in dates],
+        registered_dates=[d if isinstance(d, str) else d.isoformat() for d in dates],
     )
 
 
