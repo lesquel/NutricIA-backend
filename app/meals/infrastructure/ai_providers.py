@@ -503,6 +503,10 @@ async def analyze_food(
     """
     # Mock path for local dev without API keys
     if settings.ai_provider == "mock":
+        logger.warning(
+            "Mock analyzer active — scan responses will be deterministic. "
+            "Set AI_PROVIDER=groq (or another real provider) to get real analyses."
+        )
         return _mock_analyze(image_bytes)
 
     message = _build_scan_message(image_bytes, mime_type, user_food_profile_hint)
