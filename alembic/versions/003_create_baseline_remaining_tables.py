@@ -23,12 +23,15 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def _uuid_col(name: str, **kwargs) -> sa.Column:
-    """Return a UUID column that works on both postgres and sqlite."""
+def _uuid_col(name: str, *args, **kwargs) -> sa.Column:
+    """Return a UUID column that works on both postgres and sqlite.
+
+    Extra positional args (e.g. sa.ForeignKey(...)) are forwarded to sa.Column.
+    """
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
-        return sa.Column(name, PG_UUID(as_uuid=True), **kwargs)
-    return sa.Column(name, sa.Uuid(as_uuid=True), **kwargs)
+        return sa.Column(name, PG_UUID(as_uuid=True), *args, **kwargs)
+    return sa.Column(name, sa.Uuid(as_uuid=True), *args, **kwargs)
 
 
 def upgrade() -> None:
