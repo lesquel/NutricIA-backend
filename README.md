@@ -8,7 +8,7 @@ Open-source AI-powered calorie tracker backend built with **FastAPI** + **Postgr
 - **SQLAlchemy 2.0** — async ORM with PostgreSQL (asyncpg)
 - **Alembic** — database migrations
 - **Pydantic v2** — data validation & settings
-- **AI Providers** — Gemini 2.0 Flash / GPT-4o (configurable)
+- **AI Providers** — Groq (Llama 4 Scout, primary) with Gemini / GPT-4o / Claude / Mistral / DeepSeek fallbacks
 - **uv** — fast Python package manager
 
 ## Setup
@@ -75,7 +75,7 @@ app/
 ## Features
 
 - **Meal Scanning** — Upload a food photo → AI returns calories, macros, ingredients
-- **Dual AI Provider** — Switch between Gemini and OpenAI via `AI_PROVIDER` env var
+- **Multi-Provider AI** — Default: Groq. Switch via `AI_PROVIDER` env var (`groq` | `gemini` | `openai` | `anthropic` | `deepseek` | `mistral` | `mock`). Note: embeddings still require `GOOGLE_API_KEY` or `OPENAI_API_KEY` since Groq does not expose an embeddings API.
 - **OAuth Login** — Google and Apple Sign-In
 - **Analytics** — SQL-aggregated daily/weekly/monthly nutritional summaries
 - **Habit Garden** — Gamified habit tracking with streaks and plant growth

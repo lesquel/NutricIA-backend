@@ -107,12 +107,20 @@ class MessageRepositoryImpl:
         self._session = session
 
     def _to_entity(self, model: MessageModel) -> Message:
-        metadata: dict[str, Any] = {}
-        if model.metadata_:
+        # metadata_ is now a native JSON column — SQLAlchemy returns the
+        # parsed dict directly, no json.loads needed. Tolerate legacy rows
+        # that may still contain a JSON-encoded string from the old
+        # TEXT-backed schema.
+        raw_metadata = model.metadata_
+        if isinstance(raw_metadata, str):
             try:
-                metadata = json.loads(model.metadata_)
+                metadata = json.loads(raw_metadata) if raw_metadata else {}
             except (json.JSONDecodeError, TypeError):
                 metadata = {}
+        elif isinstance(raw_metadata, dict):
+            metadata = raw_metadata
+        else:
+            metadata = {}
         return Message(
             id=model.id,
             conversation_id=model.conversation_id,
@@ -129,7 +137,7 @@ class MessageRepositoryImpl:
             conversation_id=message.conversation_id,
             role=message.role,
             content=message.content,
-            metadata_=json.dumps(message.metadata),
+            metadata_=message.metadata or {},
             created_at=message.created_at,
         )
         self._session.add(model)

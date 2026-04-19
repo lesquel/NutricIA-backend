@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from typing import Literal
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.habits.infrastructure.models import Habit, HabitCheckIn, WaterIntake
@@ -73,10 +74,17 @@ async def check_in_habit(
     # Level up: every 7 days of streak
     habit.level = habit.streak_days // 7
 
-    # Save check-in
+    # Save check-in. The UNIQUE(habit_id, checked_at) constraint (migration 011)
+    # is the safety net if two requests race past the fast-path check above.
     check_in = HabitCheckIn(habit_id=habit.id, checked_at=target_date)
     db.add(check_in)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        # Re-read the habit's persisted state to return values consistent with DB.
+        await db.refresh(habit)
+        return habit.streak_days, habit.level
 
     return habit.streak_days, habit.level
 
@@ -145,12 +153,27 @@ async def log_water(
 
     if entry is not None:
         entry.cups = cups
-    else:
-        entry = WaterIntake(user_id=user_id, cups=cups, date=target_date)
-        db.add(entry)
+        await db.flush()
+        return entry
 
-    await db.flush()
-    return entry
+    entry = WaterIntake(user_id=user_id, cups=cups, date=target_date)
+    db.add(entry)
+    try:
+        await db.flush()
+        return entry
+    except IntegrityError:
+        # Concurrent insert won the race — fetch the existing row and update it.
+        await db.rollback()
+        result = await db.execute(
+            select(WaterIntake).where(
+                WaterIntake.user_id == user_id,
+                WaterIntake.date == target_date,
+            )
+        )
+        existing = result.scalar_one()
+        existing.cups = cups
+        await db.flush()
+        return existing
 
 
 async def get_water_log(

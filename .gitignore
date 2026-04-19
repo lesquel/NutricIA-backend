@@ -9,6 +9,12 @@ build/
 .ruff_cache/
 .pytest_cache/
 
+# Runtime uploads (user-submitted meal photos)
+uploads/
+
+# SQLite dev database
+*.db
+
 # Environment
 .env
 

@@ -44,12 +44,12 @@ REQUIRED_SCAN_FIELDS = {
     "confidence",
 }
 
-ANALYSIS_PROMPT = """You are a precise nutritional analysis AI. Analyze this food photo.
+_ANALYSIS_PROMPT_TEMPLATE = """You are a precise nutritional analysis AI. Analyze this food photo.
 
 Return ONLY valid JSON with this exact schema (no markdown, no extra text):
-{
+{{
     "reasoning": "step-by-step breakdown of visible ingredients, portion sizes, and their individual estimated macros",
-  "name": "dish name in English",
+  "name": "dish name in {language_name}",
   "ingredients": ["ingredient1", "ingredient2"],
   "calories": <number>,
   "protein_g": <number>,
@@ -57,16 +57,54 @@ Return ONLY valid JSON with this exact schema (no markdown, no extra text):
   "fat_g": <number>,
   "confidence": <float between 0.0 and 1.0>,
   "tags": ["tag1", "tag2"]
-}
+}}
 
 Rules:
 - Calories, protein, carbs, fat must be realistic estimates for a single serving.
 - Pay special attention to Latin American and Ecuadorian regional ingredients (e.g., mote, plátano maduro, tostado, fritada).
-- Tags should describe nutritional qualities (e.g. "High Fiber", "Whole Grain", "Omega-3", "Low Sugar").
+- Tags should describe nutritional qualities {tag_examples}.
+- WRITE the dish name, every ingredient, and every tag IN {language_name_upper}. Do not mix languages.
 - Confidence should reflect how clearly you can identify the food (1.0 = very clear, 0.5 = uncertain).
-- If the image does NOT contain food, return: {"error": "not_food"}
-- If the image is too blurry to identify, return: {"error": "blurry"}
+- If the image does NOT contain food, return: {{"error": "not_food"}}
+- If the image is too blurry to identify, return: {{"error": "blurry"}}
 """
+
+
+_LANGUAGE_CONFIG: dict[str, dict[str, str]] = {
+    "es": {
+        "name": "Spanish",
+        "name_upper": "SPANISH",
+        "tag_examples": '(e.g. "Alto en fibra", "Grano entero", "Omega-3", "Bajo en azúcar")',
+    },
+    "en": {
+        "name": "English",
+        "name_upper": "ENGLISH",
+        "tag_examples": '(e.g. "High Fiber", "Whole Grain", "Omega-3", "Low Sugar")',
+    },
+}
+
+
+def _normalize_language(lang: str | None) -> str:
+    if not lang:
+        return "es"
+    primary = lang.split(",")[0].split(";")[0].strip().lower()
+    if primary.startswith("en"):
+        return "en"
+    # Default to Spanish for es-* and anything else — the app's primary market.
+    return "es"
+
+
+def _build_analysis_prompt(language: str) -> str:
+    cfg = _LANGUAGE_CONFIG.get(language, _LANGUAGE_CONFIG["es"])
+    return _ANALYSIS_PROMPT_TEMPLATE.format(
+        language_name=cfg["name"],
+        language_name_upper=cfg["name_upper"],
+        tag_examples=cfg["tag_examples"],
+    )
+
+
+# Kept for backwards compat / tests that import ANALYSIS_PROMPT directly.
+ANALYSIS_PROMPT = _build_analysis_prompt("es")
 
 
 # ── Provider registry ────────────────────────
@@ -421,10 +459,11 @@ def _build_scan_message(
     image_bytes: bytes,
     mime_type: str,
     user_food_profile_hint: dict[str, Any] | None = None,
+    language: str = "es",
 ) -> HumanMessage:
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-    prompt = ANALYSIS_PROMPT
+    prompt = _build_analysis_prompt(language)
     if user_food_profile_hint:
         context_block = _build_user_context_block(user_food_profile_hint)
         if context_block:
@@ -488,6 +527,7 @@ async def analyze_food(
     image_bytes: bytes,
     mime_type: str = "image/jpeg",
     user_food_profile_hint: dict[str, Any] | None = None,
+    language: str = "es",
 ) -> ScanResult:
     """Analyze a food image with the configured LLM provider.
 
@@ -500,12 +540,21 @@ async def analyze_food(
         user_food_profile_hint: Optional dict with keys ``frequent_foods`` and
             ``avg_daily_macros`` used to enrich the analysis prompt with user
             context. Pass ``None`` (default) to skip enrichment.
+        language: Target output language ("es" or "en"). Controls the LLM
+            output so the dish name, ingredients, and tags come back matching
+            the user's UI language.
     """
     # Mock path for local dev without API keys
     if settings.ai_provider == "mock":
+        logger.warning(
+            "Mock analyzer active — scan responses will be deterministic. "
+            "Set AI_PROVIDER=groq (or another real provider) to get real analyses."
+        )
         return _mock_analyze(image_bytes)
 
-    message = _build_scan_message(image_bytes, mime_type, user_food_profile_hint)
+    message = _build_scan_message(
+        image_bytes, mime_type, user_food_profile_hint, language=language
+    )
     providers = _get_provider_sequence()
 
     for index, provider in enumerate(providers):

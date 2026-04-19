@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, Uuid, func
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.shared.infrastructure import Base
@@ -52,9 +53,13 @@ class MessageModel(Base):
     )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    metadata_: Mapped[str] = mapped_column(
-        "metadata", Text, nullable=False, default="{}"
-    )  # JSON stored as TEXT for sqlite compat
+    # `metadata` column is declared as JSON in migration 008 — use the
+    # SQLAlchemy JSON type so psycopg/asyncpg bind as native JSON on
+    # Postgres (text VARCHAR fails with DatatypeMismatchError) while still
+    # working on SQLite (stored as TEXT transparently).
+    metadata_: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSON, nullable=False, default=dict
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
