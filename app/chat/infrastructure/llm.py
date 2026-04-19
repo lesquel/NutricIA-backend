@@ -3,7 +3,7 @@
 Uses LangChain's astream_events() for token streaming with multi-provider
 fallback (mirrors the pattern from meals/infrastructure/ai_providers.py).
 
-Supported providers: gemini → openai → anthropic (fallback chain).
+Supported providers: groq → gemini → openai → anthropic (fallback chain).
 
 Tool-calling strategy:
     We use model.bind_tools([RecipeSuggestionTool, SwapPlannedMealTool]) so that
@@ -36,7 +36,7 @@ Always be supportive, evidence-based, and culturally aware of Latin American / E
 When suggesting recipes, use the RecipeSuggestionTool tool to provide structured data.
 """
 
-_CHAT_FALLBACK_PROVIDERS = ("gemini", "openai", "anthropic")
+_CHAT_FALLBACK_PROVIDERS = ("groq", "gemini", "openai", "anthropic")
 
 
 class ChatLLMService:
@@ -234,6 +234,19 @@ def _get_chat_model(provider: str, model_override: str | None = None) -> BaseCha
     """Instantiate a LangChain ChatModel for the given provider."""
     from app.config import settings
 
+    if provider == "groq":
+        from langchain_groq import ChatGroq
+        from pydantic import SecretStr
+
+        model = model_override or "meta-llama/llama-4-scout-17b-16e-instruct"
+        return ChatGroq(  # type: ignore[call-arg]
+            model=model,
+            temperature=0.7,
+            api_key=SecretStr(settings.groq_api_key)
+            if settings.groq_api_key
+            else None,
+        )
+
     if provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -273,6 +286,6 @@ def _get_chat_model(provider: str, model_override: str | None = None) -> BaseCha
             )
         return ChatAnthropic(model_name=model, temperature=0.7)  # type: ignore[call-arg]
 
-    # Fallback: try gemini
-    logger.warning("Unknown provider '%s' for chat — falling back to gemini", provider)
-    return _get_chat_model("gemini", model_override)
+    # Fallback: try groq (primary) then gemini
+    logger.warning("Unknown provider '%s' for chat — falling back to groq", provider)
+    return _get_chat_model("groq", model_override)

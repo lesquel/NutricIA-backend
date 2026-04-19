@@ -34,16 +34,19 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     apple_client_id: str = ""
 
-    # AI Provider
+    # AI Provider — Groq is the primary provider for LLM tasks (chat, meal
+    # scanning, meal-plan generation). Groq does NOT provide embeddings, so
+    # RAG still requires GOOGLE_API_KEY or OPENAI_API_KEY for the embeddings
+    # pipeline (see app.shared.infrastructure.embeddings).
     ai_provider: Literal[
-        "gemini", "openai", "anthropic", "deepseek", "groq", "mistral", "mock"
-    ] = "gemini"
+        "groq", "gemini", "openai", "anthropic", "deepseek", "mistral", "mock"
+    ] = "groq"
     ai_model: str = ""  # Leave empty to use provider default
-    google_api_key: str = ""  # Gemini
-    openai_api_key: str = ""  # OpenAI / DeepSeek (via base_url)
+    groq_api_key: str = ""  # Groq (primary LLM provider)
+    google_api_key: str = ""  # Gemini + embeddings
+    openai_api_key: str = ""  # OpenAI / DeepSeek (via base_url) + embeddings
     anthropic_api_key: str = ""
     deepseek_api_key: str = ""
-    groq_api_key: str = ""
     mistral_api_key: str = ""
 
     # External data source API keys
@@ -92,6 +95,25 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return value.strip()
         return value
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def ensure_async_driver(cls, value: str | None) -> str | None:
+        """Normalize Postgres URLs to the asyncpg driver.
+
+        Managed Postgres providers (Render, Heroku, Railway) expose
+        `postgres://` or `postgresql://` which SQLAlchemy routes to the
+        sync `psycopg2` driver. This app uses async SQLAlchemy, so we
+        rewrite the scheme to `postgresql+asyncpg://`.
+        """
+        if not isinstance(value, str):
+            return value
+        url = value.strip()
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://") :]
+        if url.startswith("postgresql://"):
+            url = "postgresql+asyncpg://" + url[len("postgresql://") :]
+        return url
 
 
 settings = Settings()

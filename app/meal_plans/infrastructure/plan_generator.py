@@ -200,31 +200,70 @@ def _extract_json(text: str) -> Any:
 
 
 def _get_llm() -> Any:
-    """Instantiate the primary LLM (Gemini → OpenAI fallback)."""
-    if settings.ai_provider == "mock" or not settings.google_api_key:
+    """Instantiate the primary LLM.
+
+    Provider priority respects ``settings.ai_provider`` when credentials are
+    available, otherwise falls back to the first provider with credentials in
+    this order: groq → gemini → openai. Returns ``None`` if nothing is
+    configured (mock path).
+    """
+    if settings.ai_provider == "mock":
         return None  # handled by mock path
 
-    try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
+    # Ordered candidates: configured primary first, then groq → gemini → openai
+    candidates: list[str] = []
+    if settings.ai_provider not in ("mock", ""):
+        candidates.append(settings.ai_provider)
+    for name in ("groq", "gemini", "openai"):
+        if name not in candidates:
+            candidates.append(name)
 
-        return ChatGoogleGenerativeAI(
-            model=settings.ai_model or "gemini-2.0-flash",
-            temperature=0.3,
-            max_output_tokens=4096,
-            google_api_key=settings.google_api_key or None,
-        )
-    except Exception as exc:
-        logger.warning("Gemini unavailable for plan generation: %s", exc)
+    for provider in candidates:
+        try:
+            if provider == "groq" and settings.groq_api_key:
+                from langchain_groq import ChatGroq
+                from pydantic import SecretStr
 
-    if settings.openai_api_key:
-        from langchain_openai import ChatOpenAI
-        from pydantic import SecretStr
+                return ChatGroq(  # type: ignore[call-arg]
+                    model=(
+                        settings.ai_model
+                        if settings.ai_provider == "groq" and settings.ai_model
+                        else "meta-llama/llama-4-scout-17b-16e-instruct"
+                    ),
+                    temperature=0.3,
+                    max_tokens=4096,
+                    api_key=SecretStr(settings.groq_api_key),
+                )
 
-        return ChatOpenAI(
-            model="gpt-4o",
-            temperature=0.3,
-            api_key=SecretStr(settings.openai_api_key),
-        )
+            if provider == "gemini" and settings.google_api_key:
+                from langchain_google_genai import ChatGoogleGenerativeAI
+
+                return ChatGoogleGenerativeAI(
+                    model=(
+                        settings.ai_model
+                        if settings.ai_provider == "gemini" and settings.ai_model
+                        else "gemini-2.0-flash"
+                    ),
+                    temperature=0.3,
+                    max_output_tokens=4096,
+                    google_api_key=settings.google_api_key or None,
+                )
+
+            if provider == "openai" and settings.openai_api_key:
+                from langchain_openai import ChatOpenAI
+                from pydantic import SecretStr
+
+                return ChatOpenAI(
+                    model=(
+                        settings.ai_model
+                        if settings.ai_provider == "openai" and settings.ai_model
+                        else "gpt-4o"
+                    ),
+                    temperature=0.3,
+                    api_key=SecretStr(settings.openai_api_key),
+                )
+        except Exception as exc:
+            logger.warning("%s unavailable for plan generation: %s", provider, exc)
 
     return None
 
@@ -328,7 +367,7 @@ def _parse_weekly_plan(
 
 
 class LLMPlanGenerator:
-    """Implements PlanGeneratorPort using Gemini primary + OpenAI fallback.
+    """Implements PlanGeneratorPort using Groq primary, with Gemini/OpenAI fallback.
 
     Includes a constraint validation loop: if any day's calories deviate more than
     10% from the target, one retry (up to MAX_RETRIES) is attempted with feedback.
