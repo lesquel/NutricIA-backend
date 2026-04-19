@@ -117,8 +117,32 @@ def _build_plan_prompt(
         )
 
     prompt_parts.append(
-        "\nRespond with a valid JSON object matching the WeeklyPlanSchema. "
-        "No markdown fences, no extra text."
+        "\nRespond with ONLY a valid JSON object that matches this exact schema "
+        "(no markdown fences, no extra text, no commentary):\n"
+        "{\n"
+        '  "days": [\n'
+        "    {\n"
+        '      "day_of_week": 0,   // 0=Monday ... 6=Sunday\n'
+        '      "meals": [\n'
+        "        {\n"
+        '          "meal_type": "breakfast",  // one of: breakfast, lunch, snack, dinner\n'
+        '          "recipe_name": "string",\n'
+        '          "recipe_ingredients": ["ingredient1", "ingredient2"],\n'
+        '          "calories": 500,\n'
+        '          "protein_g": 25,\n'
+        '          "carbs_g": 50,\n'
+        '          "fat_g": 15,\n'
+        '          "cook_time_minutes": 20,\n'
+        '          "difficulty": "easy",        // easy, medium, or hard\n'
+        '          "servings": 1\n'
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n"
+        "The top-level key MUST be `days` (not `plan`, not `week`). "
+        "Each day uses `day_of_week` (integer 0-6), NOT `day`. "
+        "Return all 7 days (0 through 6)."
     )
 
     return "\n".join(prompt_parts)
@@ -231,7 +255,10 @@ def _get_llm() -> Any:
                         else "meta-llama/llama-4-scout-17b-16e-instruct"
                     ),
                     temperature=0.3,
-                    max_tokens=4096,
+                    # 7 days × 3-4 meals × full recipe JSON easily exceeds 4k
+                    # tokens — too low a cap truncates the JSON and the parser
+                    # then sees 100+ "field required" errors on half-formed days.
+                    max_tokens=8192,
                     api_key=SecretStr(settings.groq_api_key),
                 )
 
@@ -304,13 +331,83 @@ def _validate_plan_macros(
 # ── Plan parser ───────────────────────────────────────────────────────────────
 
 
+_DAY_KEY_ALIASES = ("days", "plan", "week", "weekly_plan", "daily_plan")
+_DAY_INDEX_ALIASES = ("day_of_week", "day", "day_index", "day_number", "dayOfWeek")
+_MEAL_LIST_ALIASES = ("meals", "meal", "meal_list", "dishes", "recipes")
+_MEAL_TYPE_ALIASES = ("meal_type", "mealType", "type", "category")
+
+
+def _normalize_weekly_plan(raw: Any) -> dict[str, Any]:
+    """Smooth over the schema variance between providers.
+
+    Groq/Llama sometimes emit ``{"plan": [...]}`` with ``day`` instead of
+    ``day_of_week``; GPT/Gemini usually comply with the prompt. We alias the
+    common variants so the strict ``WeeklyPlanSchema.model_validate`` call
+    that follows succeeds for all providers without throwing 175 errors at
+    once on a cosmetic mismatch.
+    """
+    if not isinstance(raw, dict):
+        return raw if isinstance(raw, dict) else {"days": []}
+
+    normalized: dict[str, Any] = dict(raw)
+
+    # Pick whichever top-level list-of-days key the model used.
+    days_value: Any = None
+    for key in _DAY_KEY_ALIASES:
+        if key in normalized and isinstance(normalized[key], list):
+            days_value = normalized[key]
+            break
+    if days_value is None:
+        # No recognizable top-level key — let pydantic emit its real error.
+        return normalized
+
+    rebuilt_days: list[dict[str, Any]] = []
+    for day in days_value:
+        if not isinstance(day, dict):
+            continue
+        day_copy = dict(day)
+
+        if "day_of_week" not in day_copy:
+            for alias in _DAY_INDEX_ALIASES:
+                if alias in day_copy:
+                    day_copy["day_of_week"] = day_copy[alias]
+                    break
+
+        if "meals" not in day_copy:
+            for alias in _MEAL_LIST_ALIASES:
+                if alias in day_copy and isinstance(day_copy[alias], list):
+                    day_copy["meals"] = day_copy[alias]
+                    break
+
+        meals_list = day_copy.get("meals")
+        if isinstance(meals_list, list):
+            rebuilt_meals: list[dict[str, Any]] = []
+            for meal in meals_list:
+                if not isinstance(meal, dict):
+                    continue
+                meal_copy = dict(meal)
+                if "meal_type" not in meal_copy:
+                    for alias in _MEAL_TYPE_ALIASES:
+                        if alias in meal_copy:
+                            meal_copy["meal_type"] = meal_copy[alias]
+                            break
+                rebuilt_meals.append(meal_copy)
+            day_copy["meals"] = rebuilt_meals
+
+        rebuilt_days.append(day_copy)
+
+    normalized["days"] = rebuilt_days
+    return normalized
+
+
 def _parse_weekly_plan(
     raw: Any,
     plan_id: uuid.UUID,
     user_id: uuid.UUID,
     week_start: date,
 ) -> MealPlan:
-    schema = WeeklyPlanSchema.model_validate(raw)
+    normalized = _normalize_weekly_plan(raw)
+    schema = WeeklyPlanSchema.model_validate(normalized)
     meals: list[PlannedMeal] = []
     for day in schema.days:
         for recipe in day.meals:
