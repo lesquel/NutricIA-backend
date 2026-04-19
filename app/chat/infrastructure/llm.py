@@ -59,7 +59,20 @@ class ChatLLMService:
         return _get_chat_model(provider, model_name or None)
 
     def _bind_tools(self, model: BaseChatModel) -> BaseChatModel:
-        """Bind the tool schemas to the model for structured output."""
+        """Bind the tool schemas to the model for structured output.
+
+        Groq's Llama tool-calling validator rejects payloads where the model
+        stringifies nested objects/arrays/ints ("macros_per_serving" as a
+        string, etc.), which aborts the whole stream mid-response. Llama 4
+        Scout is especially prone to this. Skip tool binding for Groq so the
+        model returns a plain text answer that reliably reaches the user —
+        recipe cards become a nice-to-have instead of blocking the chat.
+        """
+        from app.config import settings
+
+        if settings.ai_provider == "groq":
+            return model
+
         return model.bind_tools(  # type: ignore[return-value]
             [RecipeSuggestionTool, SwapPlannedMealTool]
         )
