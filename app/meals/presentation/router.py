@@ -7,12 +7,13 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, UploadFile, status
 
 from app.dependencies import DB, CurrentUser
 from app.meals.application.embedding_hook import generate_meal_embedding
 from app.meals.domain import FoodAnalysisError, AIProviderError
 from app.meals.application.scan_food import scan_food
+from app.meals.infrastructure.ai_providers import _normalize_language
 from app.meals.application.meal_crud import (
     save_meal,
     list_meals,
@@ -68,7 +69,12 @@ router = APIRouter(prefix="/meals", tags=["meals"])
 
 
 @router.post("/scan", response_model=ScanResult)
-async def scan_meal(file: UploadFile, user: CurrentUser, db: DB) -> ScanResult:
+async def scan_meal(
+    file: UploadFile,
+    user: CurrentUser,
+    db: DB,
+    accept_language: str | None = Header(default=None, alias="Accept-Language"),
+) -> ScanResult:
     """Upload a food photo for AI analysis. Returns nutritional data (not saved yet)."""
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(
@@ -82,6 +88,8 @@ async def scan_meal(file: UploadFile, user: CurrentUser, db: DB) -> ScanResult:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Empty file",
         )
+
+    language = _normalize_language(accept_language)
 
     # Enrich prompt with user food profile if available
     profile_hint: dict[str, Any] | None = None
@@ -101,7 +109,9 @@ async def scan_meal(file: UploadFile, user: CurrentUser, db: DB) -> ScanResult:
         logger.debug("Could not load food profile for scan enrichment", exc_info=True)
 
     try:
-        return await scan_food(image_bytes, file.content_type, profile_hint)
+        return await scan_food(
+            image_bytes, file.content_type, profile_hint, language=language
+        )
     except FoodAnalysisError as e:
         detail_map = {
             "not_food": "The image doesn't appear to contain food. Please try again with a food photo.",

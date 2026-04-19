@@ -17,6 +17,7 @@ async def scan_food(
     image_bytes: bytes,
     mime_type: str = "image/jpeg",
     user_food_profile_hint: dict[str, Any] | None = None,
+    language: str = "es",
 ) -> ScanResult:
     """Prepare image and send to AI for analysis.
 
@@ -24,9 +25,17 @@ async def scan_food(
         image_bytes: Raw image bytes from the uploaded file.
         mime_type: MIME type of the image.
         user_food_profile_hint: Optional food profile dict for prompt enrichment.
+        language: Target output language ("es" or "en") — passed through to
+            the AI provider so dish name, ingredients, and tags match the
+            user's UI language.
     """
     processed, processed_mime_type = _prepare_image_for_ai(image_bytes, mime_type)
-    return await analyze_food(processed, processed_mime_type, user_food_profile_hint)
+    return await analyze_food(
+        processed,
+        processed_mime_type,
+        user_food_profile_hint,
+        language=language,
+    )
 
 
 def _prepare_image_for_ai(image_bytes: bytes, mime_type: str) -> tuple[bytes, str]:
